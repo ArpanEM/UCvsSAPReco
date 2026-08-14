@@ -1,0 +1,2677 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark-premium">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UC × SAP Reconciliation Hub</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<!-- Chart.js with CDN fallbacks: some networks block one CDN domain outright, and cdnjs has
+     occasionally been missing specific Chart.js versions. Each script tag below is still
+     render-blocking (so the rest of the page reliably waits for Chart.js one way or another),
+     and only runs if the previous source failed to define window.Chart. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" onerror="window.__chartSrc1Failed=true"></script>
+<script>
+if((window.__chartSrc1Failed || typeof Chart==='undefined')){
+  document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" onerror="window.__chartSrc2Failed=true"><\/scr'+'ipt>');
+}
+</script>
+<script>
+if((window.__chartSrc2Failed || typeof Chart==='undefined')){
+  document.write('<scr'+'ipt src="https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js"><\/scr'+'ipt>');
+}
+</script>
+<style>
+/* ============================================================
+   THEME TOKENS
+   ============================================================ */
+:root{
+  --radius-sm:6px; --radius-md:10px; --radius-lg:16px;
+  --sidebar-w:250px;
+  --font-display:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-body:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Consolas','SF Mono',Menlo,monospace;
+}
+html[data-theme="dark-premium"]{
+  --bg:#0f1420; --bg-elev:#161d2e; --bg-card:#1b2436; --bg-hover:#232e45;
+  --border:#2a3550; --text:#e8ecf5; --text-dim:#96a2bf; --text-faint:#5c6885;
+  --accent:#6c8cff; --accent-2:#8b6cff; --accent-soft:rgba(108,140,255,.15);
+  --good:#2ecf8e; --good-soft:rgba(46,207,142,.15);
+  --warn:#f5b642; --warn-soft:rgba(245,182,66,.15);
+  --bad:#f2506b; --bad-soft:rgba(242,80,107,.15);
+  --info:#42c6f5; --info-soft:rgba(66,198,245,.15);
+  --shadow:0 8px 30px rgba(0,0,0,.35);
+  --scrollbar:#2a3550; --scrollbar-track:#0f1420;
+}
+html[data-theme="light-professional"]{
+  --bg:#f4f6fb; --bg-elev:#ffffff; --bg-card:#ffffff; --bg-hover:#eef1f9;
+  --border:#dfe4ee; --text:#1c2537; --text-dim:#5a6478; --text-faint:#98a1b5;
+  --accent:#3556d6; --accent-2:#7c4fd6; --accent-soft:rgba(53,86,214,.09);
+  --good:#159a63; --good-soft:rgba(21,154,99,.10);
+  --warn:#b7791f; --warn-soft:rgba(183,121,31,.10);
+  --bad:#c22b45; --bad-soft:rgba(194,43,69,.10);
+  --info:#1592b7; --info-soft:rgba(21,146,183,.10);
+  --shadow:0 4px 20px rgba(30,40,70,.08);
+  --scrollbar:#c7cede; --scrollbar-track:#f4f6fb;
+}
+html[data-theme="midnight-blue"]{
+  --bg:#060b18; --bg-elev:#0b1226; --bg-card:#0e1730; --bg-hover:#152040;
+  --border:#1c2a4d; --text:#dbe4ff; --text-dim:#7f8fbf; --text-faint:#4a5680;
+  --accent:#4d9fff; --accent-2:#4dd0ff; --accent-soft:rgba(77,159,255,.14);
+  --good:#28d19a; --good-soft:rgba(40,209,154,.14);
+  --warn:#ffbe4d; --warn-soft:rgba(255,190,77,.14);
+  --bad:#ff5d7a; --bad-soft:rgba(255,93,122,.14);
+  --info:#4dd0ff; --info-soft:rgba(77,208,255,.14);
+  --shadow:0 8px 34px rgba(0,10,40,.5);
+  --scrollbar:#1c2a4d; --scrollbar-track:#060b18;
+}
+html[data-theme="glass-aurora"]{
+  --bg:#141227; --bg-elev:rgba(35,32,66,.55); --bg-card:rgba(42,38,78,.5); --bg-hover:rgba(60,55,105,.6);
+  --border:rgba(255,255,255,.12); --text:#f1eefc; --text-dim:#b6adde; --text-faint:#756c9e;
+  --accent:#a875ff; --accent-2:#ff7ac6; --accent-soft:rgba(168,117,255,.2);
+  --good:#33e0a8; --good-soft:rgba(51,224,168,.18);
+  --warn:#ffc35c; --warn-soft:rgba(255,195,92,.18);
+  --bad:#ff6392; --bad-soft:rgba(255,99,146,.18);
+  --info:#5cd3ff; --info-soft:rgba(92,211,255,.18);
+  --shadow:0 8px 32px rgba(20,10,50,.45);
+  --scrollbar:rgba(255,255,255,.15); --scrollbar-track:transparent;
+  --glass-blur:14px;
+}
+html[data-theme="glass-aurora"] body{
+  background:
+    radial-gradient(circle at 15% 10%, rgba(168,117,255,.35), transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(255,122,198,.28), transparent 45%),
+    radial-gradient(circle at 50% 90%, rgba(92,211,255,.25), transparent 50%),
+    var(--bg);
+  background-attachment:fixed;
+}
+html[data-theme="glass-aurora"] .card, html[data-theme="glass-aurora"] .topbar, html[data-theme="glass-aurora"] .sidebar, html[data-theme="glass-aurora"] .modal-box, html[data-theme="glass-aurora"] .upload-zone{
+  backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+html[data-theme="sunset-amber"]{
+  --bg:#fdf6ec; --bg-elev:#fffaf2; --bg-card:#ffffff; --bg-hover:#fbeedd;
+  --border:#f0ddc0; --text:#3a2a1a; --text-dim:#8a6f52; --text-faint:#c2a879;
+  --accent:#e0742a; --accent-2:#c23b5a; --accent-soft:rgba(224,116,42,.12);
+  --good:#3f9142; --good-soft:rgba(63,145,66,.12);
+  --warn:#c98a12; --warn-soft:rgba(201,138,18,.12);
+  --bad:#c23b3b; --bad-soft:rgba(194,59,59,.12);
+  --info:#2a7fa0; --info-soft:rgba(42,127,160,.12);
+  --shadow:0 6px 22px rgba(120,70,20,.10);
+  --scrollbar:#e6cfa8; --scrollbar-track:#fdf6ec;
+}
+html[data-theme="cyber-neon"]{
+  --bg:#08070f; --bg-elev:#0e0c1c; --bg-card:#12102266; --bg-card:#131126; --bg-hover:#1c1836;
+  --border:#2c2650; --text:#eef0ff; --text-dim:#9a93c9; --text-faint:#5c548f;
+  --accent:#00e5c7; --accent-2:#ff2e9a; --accent-soft:rgba(0,229,199,.16);
+  --good:#39ff9e; --good-soft:rgba(57,255,158,.16);
+  --warn:#ffd23f; --warn-soft:rgba(255,210,63,.16);
+  --bad:#ff3d6e; --bad-soft:rgba(255,61,110,.16);
+  --info:#3fc6ff; --info-soft:rgba(63,198,255,.16);
+  --shadow:0 0 28px rgba(0,229,199,.12);
+  --scrollbar:#2c2650; --scrollbar-track:#08070f;
+}
+html[data-theme="cyber-neon"] .card, html[data-theme="cyber-neon"] .kpi{ border-color:var(--border); box-shadow:0 0 0 1px rgba(0,229,199,.04), var(--shadow); }
+html[data-theme="clean-slate"]{
+  --bg:#ffffff; --bg-elev:#fafbfc; --bg-card:#ffffff; --bg-hover:#f1f3f6;
+  --border:#e4e7ec; --text:#111827; --text-dim:#5c6472; --text-faint:#9aa1ac;
+  --accent:#4f46e5; --accent-2:#6366f1; --accent-soft:rgba(79,70,229,.08);
+  --good:#0f9d58; --good-soft:rgba(15,157,88,.08);
+  --warn:#d97706; --warn-soft:rgba(217,119,6,.08);
+  --bad:#dc2626; --bad-soft:rgba(220,38,38,.08);
+  --info:#0284c7; --info-soft:rgba(2,132,199,.08);
+  --shadow:0 2px 12px rgba(17,24,39,.06);
+  --scrollbar:#d7dbe1; --scrollbar-track:#ffffff;
+}
+html[data-theme="ocean-mint"]{
+  --bg:#f5fdfb; --bg-elev:#ffffff; --bg-card:#ffffff; --bg-hover:#e9f9f4;
+  --border:#d3f0e6; --text:#0f2a26; --text-dim:#4d766e; --text-faint:#8db3aa;
+  --accent:#0d9488; --accent-2:#0ea5e9; --accent-soft:rgba(13,148,136,.10);
+  --good:#16a34a; --good-soft:rgba(22,163,74,.10);
+  --warn:#ca8a04; --warn-soft:rgba(202,138,4,.10);
+  --bad:#e11d48; --bad-soft:rgba(225,29,72,.10);
+  --info:#0ea5e9; --info-soft:rgba(14,165,233,.10);
+  --shadow:0 4px 16px rgba(13,148,136,.08);
+  --scrollbar:#bfe8dd; --scrollbar-track:#f5fdfb;
+}
+
+
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
+  font-size:13px; line-height:1.55; overflow-x:hidden;
+}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-track{background:var(--scrollbar-track);}
+::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:6px;}
+a{color:var(--accent);}
+h1,h2,h3,h4{font-family:var(--font-display);margin:0 0 4px;font-weight:600;}
+button{font-family:inherit;cursor:pointer;}
+input,select{font-family:inherit;}
+
+/* Layout */
+/* ---------------- Quick Upload Bar (always visible, above nav) ---------------- */
+.quick-upload-bar{
+  background:linear-gradient(180deg,var(--bg-elev),var(--bg));
+  border-bottom:1px solid var(--border); padding:10px 22px;
+}
+.qub-inner{ max-width:1600px; margin:0 auto; }
+.qub-title{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:8px; font-size:12px; }
+.qub-title strong{ font-size:12.5px; }
+.qub-title .qub-sub{ font-size:11px; color:var(--text-faint); }
+.qub-zones{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+@media(max-width:900px){ .qub-zones{ grid-template-columns:1fr; } }
+.qub-zone{
+  background:var(--bg-card); border:1px solid var(--border); border-left:3px solid var(--accent);
+  border-radius:var(--radius-md); padding:8px 10px; transition:.15s;
+}
+.qub-zone:hover{ border-color:var(--accent); }
+.qub-zone-head{ display:flex; align-items:center; justify-content:space-between; font-size:11px; margin-bottom:6px; }
+.qub-zone-head .badge{ margin-left:5px; font-size:9px; padding:1px 6px; }
+.qub-count{ color:var(--text-faint); font-size:10px; }
+.upload-zone.compact{ padding:9px 8px; border-radius:var(--radius-sm); font-size:11px; }
+.qub-filelist{ list-style:none; margin:6px 0 0; padding:0; max-height:70px; overflow-y:auto; }
+.qub-filelist li{ display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:10.5px; color:var(--text-dim); padding:2px 0; }
+.qub-filelist li button{ background:none; border:none; color:var(--bad); font-size:12px; flex-shrink:0; }
+.qub-actions{ display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
+.qub-actions .btn{ font-size:12px; padding:8px 14px; }
+
+.app-shell{display:flex;min-height:100vh;}
+.sidebar{
+  width:var(--sidebar-w); flex-shrink:0; background:var(--bg-elev); border-right:1px solid var(--border);
+  position:sticky; top:0; align-self:flex-start; height:100vh; overflow-y:auto; z-index:40; transition:transform .25s ease;
+}
+.sidebar-brand{padding:18px 18px 12px; border-bottom:1px solid var(--border);}
+.sidebar-brand .logo{display:flex;align-items:center;gap:10px;}
+.sidebar-brand .logo-mark{
+  width:32px;height:32px;border-radius:9px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  box-shadow:0 3px 10px var(--accent-soft);
+  display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:12.5px;
+}
+.sidebar-brand h1{font-size:13.5px;letter-spacing:.2px;}
+.sidebar-brand .sub{font-size:10.5px;color:var(--text-faint);margin-top:2px;}
+.nav-list{list-style:none;margin:0;padding:10px;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-md);
+  color:var(--text-dim); font-size:12.5px; cursor:pointer; margin-bottom:2px; user-select:none;
+  border:1px solid transparent; transition:.15s;
+}
+.nav-item:hover{background:var(--bg-hover);color:var(--text);transform:translateX(2px);}
+.nav-item.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);font-weight:600;}
+.nav-item .ic{
+  width:22px;height:22px;text-align:center;font-size:12px;border-radius:7px;background:var(--bg-hover);
+  display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.nav-item.active .ic{ background:var(--accent); color:#fff; }
+.nav-section-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);padding:14px 12px 4px;}
+
+.main-wrap{flex:1;min-width:0;display:flex;flex-direction:column;min-height:100vh;}
+.topbar{
+  position:sticky;top:0;z-index:30;background:var(--bg-elev);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:14px;padding:10px 20px;
+}
+.hamburger{display:none;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text);width:36px;height:36px;align-items:center;justify-content:center;font-size:16px;}
+.topbar .title-block{flex:1;}
+.topbar .title-block h2{font-size:14px;}
+.topbar .title-block .crumb{font-size:10.5px;color:var(--text-faint);}
+.topbar-actions{display:flex;align-items:center;gap:8px;}
+.icon-btn{
+  background:var(--bg-card);border:1px solid var(--border);color:var(--text-dim);border-radius:8px;
+  width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:14px;
+}
+.icon-btn:hover{color:var(--text);border-color:var(--accent);}
+
+.content{padding:20px 22px 60px;max-width:1600px;width:100%;margin:0 auto;}
+.view{display:none;}
+.view.active{display:block;animation:fadeIn .25s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+/* Cards / generic */
+.card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:16px;box-shadow:var(--shadow); transition:border-color .15s, transform .15s;
+}
+.card + .card{margin-top:16px;}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;}
+.card-header h3{font-size:12.5px;position:relative;padding-left:10px;}
+.card-header h3::before{
+  content:'';position:absolute;left:0;top:2px;bottom:2px;width:3px;border-radius:3px;
+  background:linear-gradient(180deg,var(--accent),var(--accent-2));
+}
+.card-header .desc{font-size:11px;color:var(--text-faint);margin-top:2px;}
+.grid{display:grid;gap:14px;}
+.grid-2{grid-template-columns:repeat(2,1fr);}
+.grid-3{grid-template-columns:repeat(3,1fr);}
+.grid-4{grid-template-columns:repeat(4,1fr);}
+@media(max-width:1100px){.grid-4{grid-template-columns:repeat(2,1fr);}.grid-3{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:640px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}}
+
+.btn{
+  display:inline-flex;align-items:center;gap:7px;border-radius:var(--radius-md);border:1px solid var(--border);
+  background:var(--bg-hover);color:var(--text);padding:8px 14px;font-size:12px;font-weight:600;transition:.15s;
+}
+.btn:hover{border-color:var(--accent);transform:translateY(-1px);}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none;color:#fff;box-shadow:0 4px 14px var(--accent-soft);}
+.btn-primary:hover{filter:brightness(1.08);}
+.btn-ghost{background:transparent;}
+.btn-sm{padding:6px 10px;font-size:11px;}
+.btn-danger{color:var(--bad);}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+
+/* Upload zones */
+.upload-zone{
+  border:2px dashed var(--border);border-radius:var(--radius-lg);padding:22px 14px;text-align:center;
+  background:var(--bg-elev);transition:.15s;cursor:pointer;
+}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:var(--accent-soft);}
+.upload-zone .uz-icon{font-size:22px;margin-bottom:6px;}
+.upload-zone h4{font-size:12px;margin-bottom:2px;}
+.upload-zone p{font-size:10.5px;color:var(--text-faint);margin:0;}
+.file-list{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto;}
+.file-list li{
+  display:flex;align-items:center;gap:8px;background:var(--bg-elev);border:1px solid var(--border);
+  border-radius:8px;padding:6px 10px;font-size:11.5px;
+}
+.file-list li .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.file-list li .fmeta{color:var(--text-faint);font-size:10.5px;white-space:nowrap;}
+.file-list li .frm{color:var(--bad);background:none;border:none;font-size:14px;}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.02em;}
+.badge-good{background:var(--good-soft);color:var(--good);}
+.badge-warn{background:var(--warn-soft);color:var(--warn);}
+.badge-bad{background:var(--bad-soft);color:var(--bad);}
+.badge-info{background:var(--info-soft);color:var(--info);}
+.badge-neutral{background:var(--bg-hover);color:var(--text-dim);}
+
+/* KPI */
+.kpi{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;box-shadow:var(--shadow);cursor:pointer;transition:.15s;position:relative;overflow:hidden;}
+.kpi:hover{transform:translateY(-2px);border-color:var(--accent);}
+.kpi .kpi-label{font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;font-weight:700;}
+.kpi .kpi-value{font-size:20px;font-weight:800;margin-top:5px;font-family:var(--font-display);}
+.kpi .kpi-sub{font-size:10.5px;color:var(--text-dim);margin-top:3px;}
+.kpi .kpi-bar{position:absolute;left:0;top:0;bottom:0;width:4px;}
+.kpi.c-good .kpi-bar{background:var(--good);} .kpi.c-good .kpi-value{color:var(--good);}
+.kpi.c-warn .kpi-bar{background:var(--warn);} .kpi.c-warn .kpi-value{color:var(--warn);}
+.kpi.c-bad .kpi-bar{background:var(--bad);} .kpi.c-bad .kpi-value{color:var(--bad);}
+.kpi.c-info .kpi-bar{background:var(--info);} .kpi.c-info .kpi-value{color:var(--info);}
+.kpi.c-accent .kpi-bar{background:var(--accent);} .kpi.c-accent .kpi-value{color:var(--accent);}
+
+/* Tables */
+.table-wrap{overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border);}
+table{border-collapse:collapse;width:100%;font-size:12.5px;white-space:nowrap;}
+thead th{
+  position:sticky;top:0;background:var(--bg-elev);color:var(--text-dim);text-align:left;padding:9px 12px;
+  border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;
+  z-index:5;
+}
+thead th:hover{color:var(--accent);}
+tbody td{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text);}
+tbody tr:hover{background:var(--bg-hover);}
+tbody tr:last-child td{border-bottom:none;}
+.num{text-align:right;font-variant-numeric:tabular-nums;}
+.pos{color:var(--good);} .neg{color:var(--bad);}
+
+.table-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.search-input{
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;color:var(--text);
+  padding:8px 12px;font-size:12.5px;min-width:200px;
+}
+select.filter-select, input.filter-input{
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;color:var(--text);
+  padding:7px 10px;font-size:12.5px;
+}
+.pagination{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:12px;font-size:12px;color:var(--text-dim);}
+
+.filter-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;}
+.filter-field{display:flex;flex-direction:column;gap:4px;}
+.filter-field label{font-size:10.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;}
+
+/* Chart containers */
+.chart-box{position:relative;height:280px;}
+.chart-box.sm{height:220px;}
+
+/* Empty state */
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-faint);}
+.empty-state .es-icon{font-size:40px;margin-bottom:14px;opacity:.6;}
+.empty-state h3{color:var(--text-dim);margin-bottom:6px;}
+
+/* Modal */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:200;
+}
+.modal-overlay.show{display:flex;}
+.modal-box{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;
+  width:min(480px,90vw);box-shadow:var(--shadow);
+}
+.modal-box.wide{width:min(680px,92vw);}
+.proc-step{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:12.5px;color:var(--text-faint);}
+.proc-step.active{color:var(--accent);font-weight:600;}
+.proc-step.done{color:var(--good);}
+.proc-step .dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;}
+.proc-step.active .dot{background:var(--accent);}
+.proc-step.done .dot{background:var(--good);}
+.progress-track{height:8px;background:var(--bg-elev);border-radius:6px;overflow:hidden;margin:14px 0;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0%;transition:width .2s;}
+.proc-spinner{font-size:38px;display:inline-block;animation:procSpin 1.4s linear infinite;}
+@keyframes procSpin{ 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
+
+/* Toast */
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:300;display:flex;flex-direction:column;gap:8px;}
+.toast{
+  background:var(--bg-card);border:1px solid var(--border);border-left:4px solid var(--accent);
+  border-radius:10px;padding:11px 16px;font-size:12.5px;box-shadow:var(--shadow);min-width:240px;
+  animation:slideIn .2s ease;
+}
+.toast.good{border-left-color:var(--good);} .toast.bad{border-left-color:var(--bad);} .toast.warn{border-left-color:var(--warn);}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+
+/* Settings */
+.settings-nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.settings-tab{padding:8px 14px;border-radius:20px;background:var(--bg-elev);border:1px solid var(--border);font-size:12.5px;color:var(--text-dim);}
+.settings-tab.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);font-weight:600;}
+.settings-pane{display:none;}
+.settings-pane.active{display:block;}
+.form-row{display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;align-items:center;margin-bottom:8px;}
+.form-row input, .form-row select{background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 10px;font-size:12.5px;}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle .slider{position:absolute;inset:0;background:var(--border);border-radius:20px;transition:.2s;cursor:pointer;}
+.toggle .slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+.toggle input:checked + .slider{background:var(--accent);}
+.toggle input:checked + .slider:before{transform:translateX(18px);}
+.theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+.theme-swatch{border:2px solid var(--border);border-radius:var(--radius-md);padding:12px;cursor:pointer;text-align:center;font-size:12px;font-weight:600;}
+.theme-swatch.active{border-color:var(--accent);}
+.theme-preview{height:44px;border-radius:8px;margin-bottom:8px;}
+
+.field-block{margin-bottom:14px;}
+.field-block label{display:block;font-size:11.5px;color:var(--text-faint);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;}
+.field-block input, .field-block select{width:100%;background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;}
+
+.stepbar{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;}
+.stepbar button{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-elev);color:var(--text-dim);font-size:12px;}
+.stepbar button.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);}
+
+.helptext{font-size:12.5px;color:var(--text-dim);line-height:1.7;}
+.helptext code{background:var(--bg-elev);padding:2px 6px;border-radius:5px;font-family:var(--font-mono);font-size:11.5px;color:var(--accent);}
+.helptext h4{margin-top:16px;color:var(--text);}
+
+.overlay-bg{display:none;}
+@media(max-width:900px){
+  .sidebar{ position:fixed; top:0; left:0; height:100vh; transform:translateX(-100%); }
+  .sidebar.open{transform:translateX(0);}
+  .hamburger{display:flex;}
+  .overlay-bg.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:39;}
+}
+</style>
+</head>
+<body>
+<div class="quick-upload-bar" id="quickUploadBar">
+  <div class="qub-inner">
+    <div class="qub-title">
+      <strong>Upload Files to Begin</strong>
+      <span class="qub-sub">UC Sales, UC Return and SAP files are required — no menu or navigation needed.</span>
+    </div>
+    <div class="qub-zones" id="qubZones"></div>
+    <div class="qub-actions">
+      <button class="btn btn-primary" id="qubRunBtn" disabled>&#9889; Run Reconciliation</button>
+      <button class="btn btn-ghost btn-sm" id="qubMoreBtn">More upload options &amp; file validation &rarr;</button>
+    </div>
+  </div>
+</div>
+<div class="app-shell">
+
+  <div class="overlay-bg" id="sidebarOverlay"></div>
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo">
+        <div class="logo-mark">UC</div>
+        <div>
+          <h1>UC × SAP Reco Hub</h1>
+          <div class="sub">Sales &amp; Return Reconciliation</div>
+        </div>
+      </div>
+    </div>
+    <ul class="nav-list" id="navList">
+      <li class="nav-item" data-view="dashboard"><span class="ic">&#9632;</span> Dashboard</li>
+      <li class="nav-item active" data-view="upload"><span class="ic">&#8593;</span> Upload Files</li>
+      <li class="nav-section-label">Reconciliation</li>
+      <li class="nav-item" data-view="daywise"><span class="ic">&#128197;</span> Day Wise Recon</li>
+      <li class="nav-item" data-view="monthwise"><span class="ic">&#128198;</span> Monthly Recon</li>
+      <li class="nav-item" data-view="channelwise"><span class="ic">&#9737;</span> Channel Wise Recon</li>
+      <li class="nav-item" data-view="orderlevel"><span class="ic">&#128230;</span> Order Level Recon</li>
+      <li class="nav-item" data-view="skuanalysis"><span class="ic">&#127991;</span> SKU Analysis</li>
+      <li class="nav-item" data-view="detailed"><span class="ic">&#9776;</span> Detailed Recon</li>
+      <li class="nav-item" data-view="pivot"><span class="ic">&#8862;</span> Final Remark Pivot</li>
+      <li class="nav-section-label">Quality &amp; Setup</li>
+      <li class="nav-item" data-view="dataquality"><span class="ic">&#10003;</span> Data Quality</li>
+      <li class="nav-item" data-view="settings"><span class="ic">&#9881;</span> Settings</li>
+      <li class="nav-item" data-view="help"><span class="ic">?</span> Help / About</li>
+    </ul>
+  </nav>
+
+  <div class="main-wrap">
+    <header class="topbar">
+      <button class="hamburger" id="hamburgerBtn">&#9776;</button>
+      <div class="title-block">
+        <h2 id="pageTitle">Upload Files</h2>
+        <div class="crumb" id="pageCrumb">UC × SAP Reconciliation Hub</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="soundToggleBtn" title="Toggle sound">&#128266;</button>
+        <button class="icon-btn" id="themeCycleBtn" title="Cycle theme">&#9681;</button>
+        <button class="btn btn-primary btn-sm" id="downloadBtnTop" style="display:none;">&#8595; Download Reconciliation</button>
+      </div>
+    </header>
+    <main class="content" id="contentRoot">
+      <!-- views injected by JS -->
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="procModal">
+  <div class="modal-box" style="text-align:center;">
+    <div class="proc-spinner" id="procSpinner">&#9203;</div>
+    <h3 style="margin:14px 0 6px;">Running Reconciliation</h3>
+    <p id="procStatusText" style="color:var(--text-dim);font-size:12.5px;margin-bottom:16px;">Please wait while your files are matched…</p>
+    <div class="progress-track"><div class="progress-fill" id="procProgressFill"></div></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+window.__APP_START__ = Date.now();
+</script>
+<script>
+/* ============================================================
+   UC × SAP RECONCILIATION HUB — APPLICATION LOGIC
+   All processing is 100% client-side. No uploaded data ever
+   leaves the browser.
+   ============================================================ */
+(function(){
+'use strict';
+
+/* ---------------- Global State ---------------- */
+const App = {
+  files: { ucSales: [], ucReturn: [], sap: [], itPending: [] },
+  raw:   { ucSales: [], ucReturn: [], sap: [], itPending: [] }, // parsed row arrays (with __srcFile)
+  validation: [], // per-file validation results
+  settings: null,
+  computed: null, // result of reconciliation engine
+  filters: {
+    dateFrom:'', dateTo:'', month:'', sapChannel:'', ucChannel:'', marketplace:'',
+    mode:'combined', // sales | returns | combined
+    remark:'', order:'', sku:''
+  },
+  detailedTable: { page:1, pageSize:50, sortCol:'date', sortDir:'desc', search:'' },
+  runMeta: null
+};
+window.App = App;
+
+/* ---------------- Default Settings ---------------- */
+function defaultSettings(){
+  return {
+    theme: 'dark-premium',
+    sound: true,
+    tolerance: 5,
+    channelMap: [
+      { ucChannel:'NEW_AMAZON', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'BLR7', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'HYD8_HYD3', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'CCX1', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'DEL5', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'BLR8', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'CCX2', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'DED4', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'BOM5', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'GAX1', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'DEL-PNQ3', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'CJB1', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'DEL4', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'MAA4', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'AMD2', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'PAX1', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'HYD3', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'BOM7', sapChannel:'58', marketplace:'Amazon', active:true },
+      { ucChannel:'Return and Exchange', sapChannel:'95', marketplace:'Zandu Care', active:true },
+      { ucChannel:'SAMPLE', sapChannel:'95', marketplace:'Zandu Care', active:true },
+      { ucChannel:'SHOPIFY_Emami', sapChannel:'95', marketplace:'Zandu Care', active:true }
+    ],
+    docTypeMap: {
+      sales:  ['ZZEC'],
+      returns:['ZRD1']
+    },
+    columnMap: {
+      // manual overrides; blank = auto-detect
+      ucSales:  { order:'', sku:'', date:'', value:'', channel:'' },
+      ucReturn: { order:'', sku:'', date:'', qty:'', value:'', channel:'' },
+      sap:      { order:'', sku:'', date:'', qty:'', value:'', channel:'', docType:'' },
+      itPending:{ order:'', sku:'', reason:'' }
+    },
+    dateFormat: 'DD-MM-YYYY'
+  };
+}
+
+// Old placeholder default (3 rough entries) shipped in an earlier version — if a saved
+// settings blob still has exactly this, the user never customized channel mapping, so it's
+// safe to upgrade them to the fuller default list below rather than leave stale placeholders.
+const OLD_PLACEHOLDER_CHANNEL_MAP_SIG = JSON.stringify([
+  { ucChannel:'NEW_AMAZON', sapChannel:'57', marketplace:'Amazon', active:true },
+  { ucChannel:'FLIPKART',   sapChannel:'58', marketplace:'Flipkart', active:true },
+  { ucChannel:'MYNTRA',     sapChannel:'95', marketplace:'Myntra', active:true }
+]);
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem('ucsap_settings_v1');
+    if(raw){
+      const parsed = JSON.parse(raw);
+      const isOldPlaceholder = JSON.stringify(parsed.channelMap||[])===OLD_PLACEHOLDER_CHANNEL_MAP_SIG;
+      return Object.assign(defaultSettings(), parsed, {
+        channelMap: (parsed.channelMap && !isOldPlaceholder) ? parsed.channelMap : defaultSettings().channelMap,
+        docTypeMap: parsed.docTypeMap || defaultSettings().docTypeMap,
+        columnMap: Object.assign(defaultSettings().columnMap, parsed.columnMap || {})
+      });
+    }
+  }catch(e){ console.warn('settings load failed', e); }
+  return defaultSettings();
+}
+function saveSettings(){
+  localStorage.setItem('ucsap_settings_v1', JSON.stringify(App.settings));
+}
+App.settings = loadSettings();
+
+/* ---------------- Utilities ---------------- */
+const U = {};
+U.fmtNum = (n)=>{
+  if(n===null||n===undefined||isNaN(n)) return '-';
+  return Math.round(n).toLocaleString('en-IN');
+};
+U.fmtCurrency = (n)=>{
+  if(n===null||n===undefined||isNaN(n)) return '-';
+  const neg = n<0; n=Math.abs(n);
+  const s = '₹'+n.toLocaleString('en-IN',{maximumFractionDigits:0});
+  return neg? '-'+s : s;
+};
+U.fmtPct = (n)=>{
+  if(n===null||n===undefined||isNaN(n)) return '-';
+  return n.toFixed(1)+'%';
+};
+U.fmtDateDMY = (iso)=>{
+  if(!iso) return '-';
+  const p = iso.split('-');
+  if(p.length!==3) return iso;
+  return p[2]+'-'+p[1]+'-'+p[0];
+};
+U.fmtMonth = (iso)=>{
+  if(!iso) return '-';
+  const d = new Date(iso+'T00:00:00');
+  if(isNaN(d)) return '-';
+  return d.toLocaleString('en-US',{month:'short'})+' '+d.getFullYear();
+};
+U.escapeHtml = (s)=> String(s===undefined||s===null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// Normalize a column header name for fuzzy matching
+U.normHeader = (h)=>{
+  return String(h||'').toLowerCase().trim()
+    .replace(/[_\-]+/g,' ')
+    .replace(/[^a-z0-9 ]/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+};
+// Normalize a value used as a matching key (order no / sku)
+U.normKey = (v)=>{
+  if(v===null||v===undefined) return '';
+  let s = String(v).trim().toUpperCase();
+  s = s.replace(/\.0$/,''); // strip trailing .0 from numeric-looking excel values
+  s = s.replace(/\s+/g,'');
+  return s;
+};
+// Parse many date shapes into ISO YYYY-MM-DD
+U.parseDate = (v)=>{
+  if(v===null||v===undefined||v==='') return '';
+  if(v instanceof Date && !isNaN(v)){
+    return isoFromParts(v.getFullYear(),v.getMonth()+1,v.getDate());
+  }
+  if(typeof v === 'number'){
+    // excel serial date
+    const d = XLSX.SSF.parse_date_code(v);
+    if(d) return isoFromParts(d.y,d.m,d.d);
+    return '';
+  }
+  const s = String(v).trim();
+  if(!s) return '';
+  // ISO already
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return isoFromParts(+m[1],+m[2],+m[3]);
+  // DD-MM-YYYY or DD/MM/YYYY
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if(m){
+    let y=+m[3]; if(y<100) y+=2000;
+    let dd=+m[1], mm=+m[2];
+    if(mm>12 && dd<=12){ const t=dd; dd=mm; mm=t; } // swap if looks like MM-DD-YYYY
+    return isoFromParts(y,mm,dd);
+  }
+  // fallback JS parse
+  const d2 = new Date(s);
+  if(!isNaN(d2)) return isoFromParts(d2.getFullYear(),d2.getMonth()+1,d2.getDate());
+  return '';
+};
+function isoFromParts(y,m,d){
+  if(!y||!m||!d) return '';
+  const mm = String(m).padStart(2,'0'), dd = String(d).padStart(2,'0');
+  return `${y}-${mm}-${dd}`;
+}
+U.parseNum = (v)=>{
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return v;
+  let s = String(v).trim();
+  let neg = false;
+  if(/^\(.*\)$/.test(s)){ neg=true; s=s.slice(1,-1); }
+  s = s.replace(/[₹,\s]/g,'');
+  const n = parseFloat(s);
+  if(isNaN(n)) return 0;
+  return neg? -n : n;
+};
+U.uid = ()=> Math.random().toString(36).slice(2,10);
+U.debounce = (fn,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+
+App.U = U;
+
+/* ---------------- Toast Notifications ---------------- */
+const Notify = {
+  show(msg, type='info'){
+    const wrap = document.getElementById('toastWrap');
+    const el = document.createElement('div');
+    el.className = 'toast '+(type==='error'?'bad':type==='success'?'good':type==='warn'?'warn':'');
+    el.textContent = msg;
+    wrap.appendChild(el);
+    setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(20px)'; el.style.transition='.25s'; setTimeout(()=>el.remove(),260); }, 3600);
+    Sound.play(type);
+  }
+};
+App.Notify = Notify;
+window.Notify = Notify;
+
+/* ---------------- Sound Manager ---------------- */
+const Sound = {
+  ctx: null,
+  ensure(){ if(!this.ctx){ try{ this.ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return this.ctx; },
+  tone(freq, dur, vol){
+    if(!App.settings.sound) return;
+    const ctx = this.ensure(); if(!ctx) return;
+    const playNow = ()=>{
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.type='sine'; osc.frequency.value=freq;
+      gain.gain.setValueAtTime(vol||0.05, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+dur);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime+dur);
+    };
+    // Browsers suspend AudioContext until a user gesture — resume it first so sound
+    // reliably plays on the very first upload/notification click.
+    if(ctx.state==='suspended'){ ctx.resume().then(playNow).catch(()=>{}); }
+    else playNow();
+  },
+  play(kind){
+    if(!App.settings.sound) return;
+    if(kind==='success') { this.tone(720,.12,.05); setTimeout(()=>this.tone(980,.14,.05),90); }
+    else if(kind==='error'){ this.tone(220,.22,.06); }
+    else if(kind==='warn'){ this.tone(440,.15,.05); }
+    else { this.tone(560,.1,.04); }
+  }
+};
+App.Sound = Sound;
+
+/* ---------------- Theme Manager ---------------- */
+const THEMES = [
+  {id:'dark-premium', name:'Dark Premium', colors:['#0f1420','#6c8cff','#8b6cff']},
+  {id:'light-professional', name:'Light Professional', colors:['#f4f6fb','#3556d6','#7c4fd6']},
+  {id:'midnight-blue', name:'Midnight Blue', colors:['#060b18','#4d9fff','#4dd0ff']},
+  {id:'glass-aurora', name:'Glass / Aurora', colors:['#141227','#a875ff','#ff7ac6']},
+  {id:'sunset-amber', name:'Sunset Amber', colors:['#fdf6ec','#e0742a','#c23b5a']},
+  {id:'cyber-neon', name:'Cyber Neon', colors:['#08070f','#00e5c7','#ff2e9a']},
+  {id:'clean-slate', name:'Clean Slate', colors:['#ffffff','#4f46e5','#6366f1']},
+  {id:'ocean-mint', name:'Ocean Mint', colors:['#f5fdfb','#0d9488','#0ea5e9']}
+];
+const ThemeManager = {
+  apply(themeId){
+    document.documentElement.setAttribute('data-theme', themeId);
+    App.settings.theme = themeId;
+    saveSettings();
+    if(App.Views && App.Views.refreshCharts) App.Views.refreshCharts();
+  },
+  cycle(){
+    const idx = THEMES.findIndex(t=>t.id===App.settings.theme);
+    const next = THEMES[(idx+1)%THEMES.length];
+    this.apply(next.id);
+    Notify.show('Theme: '+next.name,'info');
+  }
+};
+App.ThemeManager = ThemeManager;
+App.THEMES = THEMES;
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  ThemeManager.apply(App.settings.theme);
+  document.getElementById('themeCycleBtn').addEventListener('click', ()=>ThemeManager.cycle());
+  const soundBtn = document.getElementById('soundToggleBtn');
+  const syncSoundIcon = ()=> soundBtn.innerHTML = App.settings.sound ? '&#128266;' : '&#128263;';
+  syncSoundIcon();
+  soundBtn.addEventListener('click', ()=>{
+    App.settings.sound = !App.settings.sound; saveSettings(); syncSoundIcon();
+    Notify.show('Sound '+(App.settings.sound?'ON':'OFF'), 'info');
+  });
+  // Chart.js loads from a CDN — if it fails (offline, blocked network, etc.) tell the
+  // user plainly instead of leaving every chart silently blank.
+  setTimeout(()=>{
+    if(typeof Chart==='undefined'){
+      Notify.show('Charts could not load (no internet connection to the chart library) — everything else still works', 'error');
+    }
+  }, 1500);
+});
+
+App.saveSettings = saveSettings;
+App.defaultSettings = defaultSettings;
+
+// Draws a centered "no data" message directly on a canvas instead of an empty Chart.js
+// plot, so an empty result from the current filters is obviously a filter issue, not a bug.
+App.drawEmptyChart = function(canvas, text){
+  if(!canvas) return;
+  const box = canvas.parentElement;
+  const w = (box && box.clientWidth) || 400;
+  const h = (box && box.clientHeight) || 220;
+  canvas.width = w; canvas.height = h;
+  canvas.style.width = w+'px'; canvas.style.height = h+'px';
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return;
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-faint').trim() || '#999';
+  ctx.font = '12px '+ (getComputedStyle(document.documentElement).getPropertyValue('--font-body').trim() || 'sans-serif');
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text || 'No data for the selected filters', w/2, h/2);
+};
+
+})();
+
+
+/* ============================================================
+   FILE PARSING + COLUMN DETECTION + VALIDATION
+   ============================================================ */
+(function(){
+'use strict';
+const U = App.U;
+
+/* ---------------- Column synonym dictionary ---------------- */
+// Each key maps to an array of normalized-header candidates, most preferred first.
+// Field mapping (per business rules):
+//   UC Sales  : Order ID = Display Order Code, Material Code = Item SKU Code, Date = Dispatch Date, Value = Total Price
+//   UC Return : Order ID = Sale Order Number, Material Code = Product SKU Code, Date = 1st column (Order Date), Value = Total
+//   SAP       : Order ID = PO Number (strip everything after "/*"), Material Code = Material Code,
+//               Value = Net Value in INR + Net Tax Amount
+const SYN = {
+  ucSales_order: ['display order code','sale order code','order code','order number','displayordercode','saleordercode','portal order'],
+  ucSales_sku:   ['item sku code','sku code','sku','item sku'],
+  ucSales_date:  ['dispatch date','order date','sale order date','date'],
+  ucSales_value: ['total price','subtotal','selling price','item total price'],
+  ucSales_channel:['channel','marketplace','channel name','sales channel'],
+
+  ucReturn_order: ['sale order number','sale order code','order number','order code','portal order'],
+  ucReturn_sku:   ['product sku code','sku code','item sku code','sku'],
+  ucReturn_date:  ['order date','return date','date'], // also forced to column 0 below, per spec
+  ucReturn_qty:   ['qty','quantity','return qty'],
+  ucReturn_value: ['total','return value','total value','amount'],
+  ucReturn_channel:['channel','marketplace','channel name'],
+
+  sap_order:  ['po number','sales order no','sales order number','sale order no','order number','portal order'],
+  sap_sku:    ['material code','sku code','material','item code'],
+  sap_date:   ['posting date','billing date','document date','date'],
+  sap_qty:    ['quantity','billing quantity','qty'],
+  sap_value1: ['net value in inr','net value','material value','amount in inr'],
+  sap_value2: ['net tax amount','tax amount','net tax'],
+  sap_channel:['distribution channel','channel'],
+  sap_docType:['sales doc type','sales document type','document type','doc type'],
+
+  itPending_order: ['sales order no','sale order number','order number','order code','po number','portal order'],
+  itPending_sku:   ['material code','sku code','sku','material no'],
+  itPending_reason:['reason','pending reason','remarks','remark']
+};
+
+function findColumn(headers, normHeaders, candidates, manualOverride){
+  if(manualOverride){
+    const idx = headers.indexOf(manualOverride);
+    if(idx>-1) return idx;
+    const ni = normHeaders.indexOf(U.normHeader(manualOverride));
+    if(ni>-1) return ni;
+  }
+  for(const cand of candidates){
+    const idx = normHeaders.indexOf(cand);
+    if(idx>-1) return idx;
+  }
+  // partial contains match fallback
+  for(const cand of candidates){
+    const idx = normHeaders.findIndex(h=>h.includes(cand)||cand.includes(h));
+    if(idx>-1) return idx;
+  }
+  return -1;
+}
+
+/* ---------------- Raw file -> rows (array of objects) ---------------- */
+function parseFile(file){
+  return new Promise((resolve,reject)=>{
+    const name = file.name.toLowerCase();
+    if(name.endsWith('.csv')){
+      Papa.parse(file, {
+        header:true, skipEmptyLines:true, dynamicTyping:false,
+        complete: (res)=> resolve({ headers: res.meta.fields||[], rows: res.data }),
+        error: (err)=> reject(err)
+      });
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e)=>{
+        try{
+          const wb = XLSX.read(e.target.result, {type:'binary', cellDates:false});
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet, {defval:'', raw:true});
+          const headers = json.length ? Object.keys(json[0]) : [];
+          resolve({ headers, rows: json });
+        }catch(err){
+          // Some SAP/legacy BI exports produce "Excel XML" (SpreadsheetML) .xls files with
+          // a non-standard custom tag injected inside <Workbook> (e.g. a report metadata
+          // wrapper) that trips up strict XML parsing. Fall back to a tolerant regex-based
+          // row/cell extractor rather than reporting the whole file as unreadable.
+          try{
+            const fallback = parseSpreadsheetMLFallback(String(e.target.result));
+            if(fallback && fallback.rows.length){ resolve(fallback); return; }
+          }catch(fbErr){ /* fall through to original error */ }
+          reject(err);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsBinaryString(file);
+    }
+  });
+}
+
+function decodeXmlEntities(s){
+  return String(s==null?'':s)
+    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');
+}
+function parseSpreadsheetMLFallback(text){
+  if(!/<Workbook[\s>]/i.test(text)) return null; // not SpreadsheetML XML at all
+  const wsMatch = text.match(/<Worksheet\b[^>]*>([\s\S]*?)<\/Worksheet>/i);
+  const scope = wsMatch ? wsMatch[1] : text;
+  const rowMatches = scope.match(/<Row\b[^>]*>[\s\S]*?<\/Row>/gi) || [];
+  const rows = rowMatches
+    .map(rowXml=>{
+      const cellMatches = rowXml.match(/<Cell\b[^>]*>[\s\S]*?<\/Cell>/gi) || [];
+      return cellMatches.map(cellXml=>{
+        const dataMatch = cellXml.match(/<Data\b[^>]*>([\s\S]*?)<\/Data>/i);
+        return dataMatch ? decodeXmlEntities(dataMatch[1]) : '';
+      });
+    })
+    .filter(r=> r.length>0 && r.some(c=>c!==''));
+  if(!rows.length) return null;
+  const headers = rows[0];
+  const dataRows = rows.slice(1).map(r=>{
+    const o = {};
+    headers.forEach((h,i)=> o[h]= r[i]!==undefined ? r[i] : '');
+    return o;
+  });
+  return { headers, rows: dataRows };
+}
+
+/* ---------------- Validate + tag rows for a category ---------------- */
+async function ingestFiles(category, fileObjs){
+  const results = [];
+  for(const f of fileObjs){
+    try{
+      const {headers, rows} = await parseFile(f);
+      const normHeaders = headers.map(U.normHeader);
+      const req = requiredFieldsFor(category);
+      const missing = [];
+      const colIdx = {};
+      const manual = App.settings.columnMap[category] || {};
+      for(const field of Object.keys(req)){
+        const candidates = SYN[category+'_'+field] || [];
+        let idx = findColumn(headers, normHeaders, candidates, manual[field]);
+        // UC Return date: per business rule, always use the 1st column of the file (Order Date),
+        // regardless of its header name — unless the user has set a manual override.
+        if(category==='ucReturn' && field==='date' && !manual[field] && headers.length){
+          idx = 0;
+        }
+        colIdx[field] = idx;
+        if(idx===-1 && req[field]) missing.push(field);
+      }
+      // "Invalid" means every REQUIRED column failed to detect, not every column overall
+      // (a category can have optional fields like Channel that legitimately go undetected
+      // without making the file unusable).
+      const requiredCount = Object.values(req).filter(Boolean).length;
+      const status = missing.length===0 ? 'Valid' : (missing.length===requiredCount ? 'Invalid' : 'Warning');
+      // tag rows with resolved field names + source file
+      const taggedRows = rows.map(r=>{
+        const o = { __srcFile: f.name, __srcHeaders: headers };
+        for(const field of Object.keys(req)){
+          const idx = colIdx[field];
+          let v = idx>-1 ? r[headers[idx]] : '';
+          if(category==='sap' && field==='order'){
+            // PO Number: real-world exports use a single "/" as the suffix delimiter
+            // (e.g. "405-3998225-1894745/" or "SO22480/PREP"), not always "/*" — strip
+            // everything from the first "/" onward before any further normalization/matching.
+            v = String(v==null?'':v).split('/')[0].trim();
+          }
+          o[field] = v;
+        }
+        if(category==='sap'){
+          // SAP Value to reconcile = Net Value in INR + Net Tax Amount
+          o.value = U.parseNum(o.value1) + U.parseNum(o.value2);
+        }
+        return o;
+      });
+      results.push({
+        file: f.name, category, type: fileLabel(category), rows: taggedRows.length,
+        status, missing, headers, data: taggedRows
+      });
+    }catch(err){
+      results.push({ file:f.name, category, type: fileLabel(category), rows:0, status:'Invalid', missing:['(could not parse file)'], headers:[], data:[] });
+    }
+  }
+  return results;
+}
+function requiredFieldsFor(category){
+  if(category==='ucSales') return {order:true, sku:true, date:true, value:true, channel:false};
+  if(category==='ucReturn') return {order:true, sku:true, date:true, qty:true, value:true, channel:false};
+  if(category==='sap') return {order:true, sku:true, date:false, qty:true, value1:true, value2:false, channel:true, docType:true};
+  if(category==='itPending') return {order:true, sku:false, reason:false};
+  return {};
+}
+function fileLabel(category){
+  return {ucSales:'UC Sales', ucReturn:'UC Return', sap:'SAP', itPending:'IT Pending'}[category]||category;
+}
+
+App.FileEngine = { parseFile, ingestFiles, findColumn, SYN };
+})();
+
+
+/* ============================================================
+   RECONCILIATION ENGINE
+   UC is always the base: only Order ID + Material Code combinations
+   that exist in UC Sales and/or UC Return are reconciled. SAP is
+   matched against those keys — SAP-only records are never added.
+   ============================================================ */
+(function(){
+'use strict';
+const U = App.U;
+
+function activeChannelMap(){
+  const m = {};
+  (App.settings.channelMap||[]).forEach(c=>{
+    if(c.active===false) return;
+    m[U.normKey(c.ucChannel)] = { sapChannel: String(c.sapChannel), marketplace: c.marketplace };
+  });
+  return m;
+}
+function sapChannelToMarketplace(){
+  const m = {};
+  (App.settings.channelMap||[]).forEach(c=>{ if(c.active!==false) m[String(c.sapChannel)] = c.marketplace; });
+  return m;
+}
+
+/* ---------- UC Sales: qty = COUNT(rows), value = SUM(Total Price) ---------- */
+function processUcSales(rows){
+  const out = [];
+  rows.forEach(r=>{
+    const order = U.normKey(r.order);
+    const sku = U.normKey(r.sku);
+    if(!order || !sku) return;
+    const date = U.parseDate(r.date);
+    const value = U.parseNum(r.value);
+    const ucChannelRaw = (r.channel||'').toString().trim();
+    out.push({ order, sku, date, value, qty:1, ucChannel: ucChannelRaw, srcFile:r.__srcFile });
+  });
+  return out;
+}
+/* ---------- UC Returns: qty = SUM(Qty), value = SUM(Total) ---------- */
+function processUcReturn(rows){
+  const out = [];
+  rows.forEach(r=>{
+    const order = U.normKey(r.order);
+    const sku = U.normKey(r.sku);
+    if(!order || !sku) return;
+    const date = U.parseDate(r.date);
+    const qty = U.parseNum(r.qty);
+    const value = U.parseNum(r.value);
+    const ucChannelRaw = (r.channel||'').toString().trim();
+    out.push({ order, sku, date, value, qty, ucChannel: ucChannelRaw, srcFile:r.__srcFile });
+  });
+  return out;
+}
+/* ---------- SAP: PO Number already cleaned of "/* suffix at ingestion. Split into sales / returns by doc type ---------- */
+function processSap(rows){
+  const salesTypes = new Set((App.settings.docTypeMap.sales||[]).map(s=>s.toUpperCase().trim()));
+  const returnTypes = new Set((App.settings.docTypeMap.returns||[]).map(s=>s.toUpperCase().trim()));
+  const sales = [], returns = [], unknown = [], all = [];
+  rows.forEach(r=>{
+    const order = U.normKey(r.order);
+    const sku = U.normKey(r.sku);
+    if(!order || !sku) return;
+    const date = U.parseDate(r.date);
+    // Real SAP exports often carry return-doctype rows (e.g. ZRD1) as negative quantity/value
+    // (stock moving out). UC always records both sales and returns as positive numbers, so we
+    // normalize SAP to the same positive convention before comparing.
+    const qty = Math.abs(U.parseNum(r.qty));
+    const value = Math.abs(U.parseNum(r.value)); // already Net Value in INR + Net Tax Amount, computed at ingestion
+    const docType = String(r.docType||'').toUpperCase().trim();
+    const sapChannel = String(r.channel||'').trim();
+    const rec = { order, sku, date, qty, value, sapChannel, docType, srcFile:r.__srcFile };
+    all.push(rec);
+    if(salesTypes.has(docType)) sales.push(rec);
+    else if(returnTypes.has(docType)) returns.push(rec);
+    else unknown.push(rec);
+  });
+  return { sales, returns, unknown, all };
+}
+function processItPending(rows){
+  const map = {}; // key -> reason
+  rows.forEach(r=>{
+    const order = U.normKey(r.order);
+    const sku = U.normKey(r.sku);
+    const reason = (r.reason||'').toString().trim() || 'Pending in SAP';
+    if(!order) return;
+    const key = order + '||' + (sku||'*');
+    map[key] = reason;
+    map[order+'||*'] = reason; // order-level fallback
+  });
+  return map;
+}
+
+/* ---------- Grouping helper: group array of txns by key, summing qty/value ---------- */
+function groupSum(txns, keyFn){
+  const m = new Map();
+  txns.forEach(t=>{
+    const k = keyFn(t);
+    if(!m.has(k)) m.set(k, { qty:0, value:0, dates:[], channel:t.ucChannel||t.sapChannel||'' });
+    const g = m.get(k);
+    g.qty += t.qty; g.value += t.value;
+    if(t.date) g.dates.push(t.date);
+    if(!g.channel && (t.ucChannel||t.sapChannel)) g.channel = t.ucChannel||t.sapChannel;
+  });
+  return m;
+}
+function earliestDate(dates){
+  const valid = dates.filter(Boolean).sort();
+  return valid.length? valid[0] : '';
+}
+
+/* ---------- Remark computation ----------
+   UC is the base. For each Order+SKU key sourced from UC:
+     - if the key doesn't exist in SAP at all           -> "Order/SKU Not Found in SAP"
+     - else evaluate the sales side (if UC has sales qty>0)
+       and the return side (if UC has return qty>0) independently,
+       and combine any issues found.
+*/
+const TOLERANCE_LABEL = 'Round Off';
+function evaluateSide(ucQty, ucValue, sapQty, sapValue, tolerance, notPostedLabel, partialLabel){
+  if(ucQty<=0) return null;
+  if(sapQty===0) return notPostedLabel;
+  if(sapQty<ucQty) return partialLabel;
+  if(sapQty>ucQty) return 'Quantity Mismatch';
+  const diff = Math.abs(ucValue-sapValue);
+  if(diff>tolerance) return 'Value Mismatch';
+  if(diff>0) return TOLERANCE_LABEL;
+  return null; // perfectly matched
+}
+function computeRemark(rec, tolerance){
+  if(!rec.foundInSap) return 'Order/SKU Not Found in SAP';
+  const salesIssue = evaluateSide(rec.ucSalesQty, rec.ucSalesValue, rec.sapSalesQty, rec.sapSalesValue, tolerance, 'Sales Not Posted in SAP', 'Partial Sales');
+  const returnIssue = evaluateSide(rec.ucReturnQty, rec.ucReturnValue, rec.sapReturnQty, rec.sapReturnValue, tolerance, 'Return Not Posted in SAP', 'Partial Return');
+  if(salesIssue && returnIssue){
+    return salesIssue===returnIssue ? salesIssue : (salesIssue+' & '+returnIssue);
+  }
+  return salesIssue || returnIssue || 'Matched';
+}
+const REMARK_PRIORITY = ['Matched','Round Off','Partial Sales','Partial Return','Quantity Mismatch','Value Mismatch',
+  'Sales Not Posted in SAP','Return Not Posted in SAP','Order/SKU Not Found in SAP'];
+
+/* ---------- Core reconciliation ---------- */
+function reconcile(){
+  const chMap = activeChannelMap();
+  const sapChToMkt = sapChannelToMarketplace();
+  const tolerance = Number(App.settings.tolerance)||0;
+
+  const ucSalesTxns = processUcSales(App.raw.ucSales);
+  const ucReturnTxns = processUcReturn(App.raw.ucReturn);
+  const sapSplit = processSap(App.raw.sap);
+  const itMap = processItPending(App.raw.itPending);
+
+  const ucSalesGrouped = groupSum(ucSalesTxns, t=>t.order+'||'+t.sku);
+  const ucReturnGrouped = groupSum(ucReturnTxns, t=>t.order+'||'+t.sku);
+  const sapSalesGrouped = groupSum(sapSplit.sales, t=>t.order+'||'+t.sku);
+  const sapReturnGrouped = groupSum(sapSplit.returns, t=>t.order+'||'+t.sku);
+  const sapAllGrouped = groupSum(sapSplit.all, t=>t.order+'||'+t.sku);
+
+  // UC is the base: only keys present in UC Sales and/or UC Return are reconciled
+  const ucKeys = new Set([...ucSalesGrouped.keys(), ...ucReturnGrouped.keys()]);
+
+  const detailed = [];
+  ucKeys.forEach(key=>{
+    const [order, sku] = key.split('||');
+    const ucS = ucSalesGrouped.get(key), ucR = ucReturnGrouped.get(key);
+    const sapS = sapSalesGrouped.get(key), sapR = sapReturnGrouped.get(key);
+    const foundInSap = sapAllGrouped.has(key);
+
+    const ucSalesQty = ucS? ucS.qty:0, ucSalesValue = ucS? ucS.value:0;
+    const ucReturnQty = ucR? ucR.qty:0, ucReturnValue = ucR? ucR.value:0;
+    const sapSalesQty = sapS? sapS.qty:0, sapSalesValue = sapS? sapS.value:0;
+    const sapReturnQty = sapR? sapR.qty:0, sapReturnValue = sapR? sapR.value:0;
+
+    const date = earliestDate([...(ucS?ucS.dates:[]), ...(ucR?ucR.dates:[])]);
+    let ucChannelRaw = (ucS&&ucS.channel) || (ucR&&ucR.channel) || '';
+    let sapChannelRaw = (sapS&&sapS.channel) || (sapR&&sapR.channel) || '';
+    let resolvedSapChannel = sapChannelRaw, marketplace = '';
+    if(ucChannelRaw){
+      const mapped = chMap[U.normKey(ucChannelRaw)];
+      if(mapped){ marketplace = mapped.marketplace; if(!resolvedSapChannel) resolvedSapChannel = mapped.sapChannel; }
+    }
+    if(!marketplace && resolvedSapChannel && sapChToMkt[resolvedSapChannel]) marketplace = sapChToMkt[resolvedSapChannel];
+    const unmapped = !!ucChannelRaw && !chMap[U.normKey(ucChannelRaw)];
+
+    const rec = {
+      order, sku, matchKey: order+'-'+sku, date, month: U.fmtMonth(date),
+      channel: resolvedSapChannel||'', ucChannel: ucChannelRaw||'', marketplace: marketplace||'(Unmapped)', unmapped,
+      ucSalesQty, sapSalesQty, salesQtyDiff: ucSalesQty-sapSalesQty,
+      ucSalesValue, sapSalesValue, salesValueDiff: ucSalesValue-sapSalesValue,
+      ucReturnQty, sapReturnQty, returnQtyDiff: ucReturnQty-sapReturnQty,
+      ucReturnValue, sapReturnValue, returnValueDiff: ucReturnValue-sapReturnValue,
+      foundInSap
+    };
+    rec.remark = computeRemark(rec, tolerance);
+    // aggregate diffs for generic table/pivot columns
+    rec.ucQty = ucSalesQty+ucReturnQty; rec.sapQty = sapSalesQty+sapReturnQty; rec.qtyDiff = rec.ucQty-rec.sapQty;
+    rec.ucValue = ucSalesValue+ucReturnValue; rec.sapValue = sapSalesValue+sapReturnValue; rec.valueDiff = rec.ucValue-rec.sapValue;
+    rec.absValueDiff = Math.abs(rec.salesValueDiff)+Math.abs(rec.returnValueDiff);
+    // IT Pending enrichment: only meaningful when something wasn't posted in SAP
+    if(/Not Posted in SAP|Not Found in SAP/.test(rec.remark)){
+      const itHit = itMap[key] || itMap[order+'||*'];
+      if(itHit){ rec.itPending = true; rec.itReason = itHit; rec.remark = rec.remark+' (SAP Pending / IT)'; }
+      else { rec.itPending = false; rec.itReason = ''; }
+    } else { rec.itPending = false; rec.itReason = ''; }
+    detailed.push(rec);
+  });
+
+  App.computed = { detailed, ucSalesTxns, ucReturnTxns, sapSplit, itMap };
+  return App.computed;
+}
+
+/* ---------- Filter application ---------- */
+function applyFilters(records){
+  const f = App.filters;
+  return records.filter(r=>{
+    if(f.mode==='sales' && !(r.ucSalesQty>0 || r.sapSalesQty>0)) return false;
+    if(f.mode==='returns' && !(r.ucReturnQty>0 || r.sapReturnQty>0)) return false;
+    if(f.dateFrom && r.date && r.date < f.dateFrom) return false;
+    if(f.dateTo && r.date && r.date > f.dateTo) return false;
+    if(f.month && r.month!==f.month) return false;
+    if(f.sapChannel && r.channel!==f.sapChannel) return false;
+    if(f.ucChannel && r.ucChannel!==f.ucChannel) return false;
+    if(f.marketplace && r.marketplace!==f.marketplace) return false;
+    if(f.remark && !r.remark.includes(f.remark)) return false;
+    if(f.order && !r.order.includes(f.order.toUpperCase())) return false;
+    if(f.sku && !r.sku.includes(f.sku.toUpperCase())) return false;
+    return true;
+  });
+}
+
+/* ---------- Aggregations ---------- */
+function aggDayWise(records){
+  const m = new Map();
+  records.forEach(r=>{
+    if(!r.date) return;
+    const key = r.date+'||'+r.channel;
+    if(!m.has(key)) m.set(key, { date:r.date, channel:r.channel, marketplace:r.marketplace,
+      ucSalesQty:0, sapSalesQty:0, ucSalesValue:0, sapSalesValue:0,
+      ucReturnQty:0, sapReturnQty:0, ucReturnValue:0, sapReturnValue:0 });
+    const g = m.get(key);
+    g.ucSalesQty+=r.ucSalesQty; g.sapSalesQty+=r.sapSalesQty; g.ucSalesValue+=r.ucSalesValue; g.sapSalesValue+=r.sapSalesValue;
+    g.ucReturnQty+=r.ucReturnQty; g.sapReturnQty+=r.sapReturnQty; g.ucReturnValue+=r.ucReturnValue; g.sapReturnValue+=r.sapReturnValue;
+  });
+  return [...m.values()].sort((a,b)=> a.date<b.date?-1:1);
+}
+function aggMonthWise(records){
+  const m = new Map();
+  records.forEach(r=>{
+    if(!r.month) return;
+    if(!m.has(r.month)) m.set(r.month, { month:r.month, sortKey:r.date.slice(0,7),
+      ucSalesQty:0, sapSalesQty:0, ucSalesValue:0, sapSalesValue:0,
+      ucReturnQty:0, sapReturnQty:0, ucReturnValue:0, sapReturnValue:0,
+      matched:0, total:0 });
+    const g = m.get(r.month);
+    g.ucSalesQty+=r.ucSalesQty; g.sapSalesQty+=r.sapSalesQty; g.ucSalesValue+=r.ucSalesValue; g.sapSalesValue+=r.sapSalesValue;
+    g.ucReturnQty+=r.ucReturnQty; g.sapReturnQty+=r.sapReturnQty; g.ucReturnValue+=r.ucReturnValue; g.sapReturnValue+=r.sapReturnValue;
+    g.total++;
+    if(r.remark==='Matched'||r.remark==='Round Off') g.matched++;
+  });
+  return [...m.values()].sort((a,b)=> a.sortKey<b.sortKey?-1:1);
+}
+function aggChannelWise(records){
+  const m = new Map();
+  records.forEach(r=>{
+    const key = r.channel||'(none)';
+    if(!m.has(key)) m.set(key, { channel:key, marketplace:r.marketplace,
+      ucSalesQty:0, sapSalesQty:0, ucSalesValue:0, sapSalesValue:0,
+      ucReturnQty:0, sapReturnQty:0, ucReturnValue:0, sapReturnValue:0,
+      matched:0, total:0 });
+    const g = m.get(key);
+    g.ucSalesQty+=r.ucSalesQty; g.sapSalesQty+=r.sapSalesQty; g.ucSalesValue+=r.ucSalesValue; g.sapSalesValue+=r.sapSalesValue;
+    g.ucReturnQty+=r.ucReturnQty; g.sapReturnQty+=r.sapReturnQty; g.ucReturnValue+=r.ucReturnValue; g.sapReturnValue+=r.sapReturnValue;
+    g.total++;
+    if(r.remark==='Matched'||r.remark==='Round Off') g.matched++;
+  });
+  return [...m.values()];
+}
+function aggOrderLevel(records){
+  const m = new Map();
+  records.forEach(r=>{
+    const key = r.order;
+    if(!m.has(key)) m.set(key, { order:key, skuCount:0,
+      ucSalesQty:0, sapSalesQty:0, ucSalesValue:0, sapSalesValue:0,
+      ucReturnQty:0, sapReturnQty:0, ucReturnValue:0, sapReturnValue:0, remarks:new Set() });
+    const g = m.get(key);
+    g.skuCount++;
+    g.ucSalesQty+=r.ucSalesQty; g.sapSalesQty+=r.sapSalesQty; g.ucSalesValue+=r.ucSalesValue; g.sapSalesValue+=r.sapSalesValue;
+    g.ucReturnQty+=r.ucReturnQty; g.sapReturnQty+=r.sapReturnQty; g.ucReturnValue+=r.ucReturnValue; g.sapReturnValue+=r.sapReturnValue;
+    g.remarks.add(r.remark);
+  });
+  return [...m.values()].map(g=>{
+    let status;
+    if(g.remarks.size===1) status = [...g.remarks][0];
+    else if([...g.remarks].every(r=>r==='Matched'||r==='Round Off')) status='Matched (Mixed Round Off)';
+    else status = 'Mixed / Partial Issues';
+    return { order:g.order, skuCount:g.skuCount,
+      ucSalesQty:g.ucSalesQty, sapSalesQty:g.sapSalesQty, salesQtyDiff:g.ucSalesQty-g.sapSalesQty,
+      ucSalesValue:g.ucSalesValue, sapSalesValue:g.sapSalesValue, salesValueDiff:g.ucSalesValue-g.sapSalesValue,
+      ucReturnQty:g.ucReturnQty, sapReturnQty:g.sapReturnQty, returnQtyDiff:g.ucReturnQty-g.sapReturnQty,
+      ucReturnValue:g.ucReturnValue, sapReturnValue:g.sapReturnValue, returnValueDiff:g.ucReturnValue-g.sapReturnValue,
+      status };
+  });
+}
+function aggSkuLevel(records){
+  const m = new Map();
+  records.forEach(r=>{
+    const key = r.sku;
+    if(!m.has(key)) m.set(key, { sku:key,
+      ucSalesQty:0, sapSalesQty:0, ucSalesValue:0, sapSalesValue:0,
+      ucReturnQty:0, sapReturnQty:0, ucReturnValue:0, sapReturnValue:0,
+      orders:new Set(), matched:0, total:0 });
+    const g = m.get(key);
+    g.ucSalesQty+=r.ucSalesQty; g.sapSalesQty+=r.sapSalesQty; g.ucSalesValue+=r.ucSalesValue; g.sapSalesValue+=r.sapSalesValue;
+    g.ucReturnQty+=r.ucReturnQty; g.sapReturnQty+=r.sapReturnQty; g.ucReturnValue+=r.ucReturnValue; g.sapReturnValue+=r.sapReturnValue;
+    g.orders.add(r.order); g.total++;
+    if(r.remark==='Matched'||r.remark==='Round Off') g.matched++;
+  });
+  return [...m.values()].map(g=>({
+    sku:g.sku,
+    ucSalesQty:g.ucSalesQty, sapSalesQty:g.sapSalesQty, salesQtyDiff:g.ucSalesQty-g.sapSalesQty,
+    ucSalesValue:g.ucSalesValue, sapSalesValue:g.sapSalesValue, salesValueDiff:g.ucSalesValue-g.sapSalesValue,
+    ucReturnQty:g.ucReturnQty, sapReturnQty:g.sapReturnQty, returnQtyDiff:g.ucReturnQty-g.sapReturnQty,
+    ucReturnValue:g.ucReturnValue, sapReturnValue:g.sapReturnValue, returnValueDiff:g.ucReturnValue-g.sapReturnValue,
+    orders:g.orders.size, matchPct: g.total? (g.matched/g.total*100):0
+  }));
+}
+function aggPivot(records){
+  const m = new Map();
+  records.forEach(r=>{
+    if(!m.has(r.remark)) m.set(r.remark, { remark:r.remark, ucQty:0, sapQty:0, qtyDiff:0, ucValue:0, sapValue:0, valueDiff:0, count:0 });
+    const g = m.get(r.remark);
+    g.ucQty+=r.ucQty; g.sapQty+=r.sapQty; g.qtyDiff+=r.qtyDiff; g.ucValue+=r.ucValue; g.sapValue+=r.sapValue; g.valueDiff+=r.valueDiff; g.count++;
+  });
+  const known = REMARK_PRIORITY.filter(r=>m.has(r)).map(r=>m.get(r));
+  const rest = [...m.values()].filter(g=> !REMARK_PRIORITY.includes(g.remark)).sort((a,b)=>b.count-a.count);
+  return [...known, ...rest];
+}
+function matchRate(records){
+  const reconcilable = records.filter(r=> r.remark!=='Order/SKU Not Found in SAP');
+  const matched = records.filter(r=> r.remark==='Matched'||r.remark==='Round Off').length;
+  return reconcilable.length? (matched/reconcilable.length*100) : 0;
+}
+
+App.Engine = {
+  reconcile, applyFilters, activeChannelMap, sapChannelToMarketplace,
+  aggDayWise, aggMonthWise, aggChannelWise, aggOrderLevel, aggSkuLevel, aggPivot, matchRate,
+  REMARK_ORDER: REMARK_PRIORITY
+};
+})();
+
+
+/* ============================================================
+   VIEWS / UI RENDERING
+   ============================================================ */
+(function(){
+'use strict';
+const U = App.U;
+const Views = {};
+App.Views = Views;
+let charts = {}; // chartId -> Chart instance
+
+Views.refreshCharts = function(){
+  Object.values(charts).forEach(c=>{ try{ c.update(); }catch(e){} });
+};
+
+/* ---------------- Navigation ---------------- */
+const NAV_TITLES = {
+  upload:'Upload Files', dashboard:'Executive Dashboard', daywise:'Day Wise Reconciliation',
+  monthwise:'Monthly Reconciliation', channelwise:'Channel Wise Reconciliation',
+  orderlevel:'Order Level Reconciliation', skuanalysis:'SKU Analysis', detailed:'Detailed Reconciliation',
+  pivot:'Final Remark Pivot', dataquality:'Data Quality', settings:'Settings', help:'Help / About'
+};
+
+function goTo(view, opts){
+  opts = opts||{};
+  document.querySelectorAll('.nav-item').forEach(n=> n.classList.toggle('active', n.dataset.view===view));
+  document.getElementById('pageTitle').textContent = NAV_TITLES[view]||view;
+  document.getElementById('pageCrumb').textContent = 'UC × SAP Reconciliation Hub / '+(NAV_TITLES[view]||view);
+  document.querySelectorAll('.view').forEach(v=> v.classList.remove('active'));
+  let el = document.getElementById('view-'+view);
+  if(!el){
+    el = document.createElement('div'); el.className='view'; el.id='view-'+view;
+    document.getElementById('contentRoot').appendChild(el);
+  }
+  el.classList.add('active');
+  render(view, el, opts);
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+Views.goTo = goTo;
+
+function render(view, el, opts){
+  if(!App.computed && view!=='upload' && view!=='settings' && view!=='help'){
+    el.innerHTML = emptyState('No reconciliation run yet','Upload your UC and SAP reports, then click "Run Reconciliation" to see this view.');
+    return;
+  }
+  const fn = Views['render_'+view];
+  if(fn) fn(el, opts);
+}
+function emptyState(title, sub){
+  return `<div class="card"><div class="empty-state"><div class="es-icon">&#128203;</div><h3>${U.escapeHtml(title)}</h3><p>${U.escapeHtml(sub)}</p>
+    <button class="btn btn-primary" style="margin-top:14px" onclick="App.Views.goTo('upload')">Go to Upload Files</button></div></div>`;
+}
+Views.emptyState = emptyState;
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.querySelectorAll('.nav-item').forEach(item=>{
+    item.addEventListener('click', ()=> goTo(item.dataset.view));
+  });
+  document.getElementById('hamburgerBtn').addEventListener('click', ()=>{
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+  });
+  document.getElementById('sidebarOverlay').addEventListener('click', ()=>{
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  });
+  document.getElementById('downloadBtnTop').addEventListener('click', ()=> App.ExportEngine.downloadWorkbook());
+  renderQuickBar();
+  goTo('upload');
+});
+
+/* ================================================================
+   QUICK UPLOAD BAR — always visible above the nav, so the user can
+   upload UC Sales / UC Return / SAP files immediately without
+   opening any menu, from any view.
+   ================================================================ */
+const QUB_CATS = [
+  {key:'ucSales', label:'UC Sales File'},
+  {key:'ucReturn', label:'UC Return File'},
+  {key:'sap', label:'SAP File'}
+];
+function renderQuickBar(){
+  const wrap = document.getElementById('qubZones');
+  if(!wrap) return;
+  wrap.innerHTML = QUB_CATS.map(c=>{
+    const files = App.files[c.key];
+    const names = files.map((f,i)=>`<li><span>${U.escapeHtml(f.name)}</span><button class="frm" data-cat="${c.key}" data-idx="${i}" title="Remove">&times;</button></li>`).join('');
+    return `<div class="qub-zone">
+      <div class="qub-zone-head"><span>${c.label}<span class="badge badge-neutral">Required</span></span>
+      <span class="qub-count">${files.length? files.length+' file(s)':'none yet'}</span></div>
+      <div class="upload-zone compact" data-cat="${c.key}">
+        <span>${files.length? '+ Add more files' : 'Drag &amp; drop or click to browse'}</span>
+        <input type="file" multiple accept=".csv,.xls,.xlsx,.xlsm" style="display:none;">
+      </div>
+      <ul class="qub-filelist">${names}</ul>
+    </div>`;
+  }).join('');
+  QUB_CATS.forEach(c=>{
+    const zone = wrap.querySelector(`.upload-zone[data-cat="${c.key}"]`);
+    const input = zone.querySelector('input');
+    zone.addEventListener('click', ()=> input.click());
+    input.addEventListener('change', (e)=> handleFiles(c.key, [...e.target.files]));
+    ['dragenter','dragover'].forEach(ev=> zone.addEventListener(ev, e=>{ e.preventDefault(); zone.classList.add('drag'); }));
+    ['dragleave','drop'].forEach(ev=> zone.addEventListener(ev, e=>{ e.preventDefault(); zone.classList.remove('drag'); }));
+    zone.addEventListener('drop', e=>{
+      const files = [...e.dataTransfer.files].filter(f=>/\.(csv|xls|xlsx|xlsm)$/i.test(f.name));
+      if(files.length) handleFiles(c.key, files);
+    });
+  });
+  wrap.querySelectorAll('.frm').forEach(btn=> btn.addEventListener('click', ()=>{
+    const c = btn.dataset.cat, idx = +btn.dataset.idx;
+    const removed = App.files[c].splice(idx,1)[0];
+    App.validation = App.validation.filter(v=> !(v.category===c && v.file===removed.name));
+    App.raw[c] = App.raw[c].filter(r=> r.__srcFile!==removed.name);
+    refreshFileList(c);
+    const vtw = document.getElementById('validationTableWrap');
+    if(vtw) vtw.innerHTML = validationTableHtml();
+    const rrBtn = document.getElementById('runReconBtn');
+    if(rrBtn) rrBtn.disabled = !canRun();
+    renderQuickBar();
+  }));
+  const runBtn = document.getElementById('qubRunBtn');
+  if(runBtn){ runBtn.disabled = !canRun(); runBtn.onclick = runReconciliation; }
+}
+App.__renderQuickBar = renderQuickBar;
+document.addEventListener('click', (e)=>{
+  if(e.target && e.target.id==='qubMoreBtn') Views.goTo('upload');
+});
+
+/* ================================================================
+   UPLOAD VIEW
+   ================================================================ */
+const CATS = [
+  {key:'itPending', title:'IT Pending / SAP Unposted Orders', desc:'Optional exception list from IT', required:false}
+];
+
+Views.render_upload = function(el){
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-header"><div><h3>Optional: IT Pending / SAP Unposted Orders</h3><div class="desc">UC Sales, UC Return and SAP files are uploaded from the bar pinned above the navigation — this page is only for the optional IT file, validation and running the reconciliation</div></div></div>
+      <div id="itPendingGrid"></div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header">
+        <div><h3>File Validation</h3><div class="desc">Column detection results for every uploaded file</div></div>
+        <button class="btn btn-ghost btn-sm" id="removeAllBtn">Remove All Files</button>
+      </div>
+      <div id="validationTableWrap">${validationTableHtml()}</div>
+    </div>
+    <div class="card" style="margin-top:16px;text-align:center;padding:22px;">
+      <button class="btn btn-primary" id="runReconBtn" ${canRun()?'':'disabled'}>
+        &#9889; Run Reconciliation
+      </button>
+      <p style="color:var(--text-faint);font-size:11.5px;margin-top:10px;">Upload UC Sales, UC Return and at least one SAP file (above) to enable this button. Files never leave your browser.</p>
+    </div>
+  `;
+  const itGrid = document.getElementById('itPendingGrid');
+  CATS.forEach(cat=> itGrid.appendChild(buildUploadZone(cat)));
+  document.getElementById('runReconBtn').addEventListener('click', runReconciliation);
+  document.getElementById('removeAllBtn').addEventListener('click', ()=>{
+    App.files = { ucSales:[], ucReturn:[], sap:[], itPending:[] };
+    App.raw = { ucSales:[], ucReturn:[], sap:[], itPending:[] };
+    App.validation = [];
+    Views.goTo('upload');
+    if(App.__renderQuickBar) App.__renderQuickBar();
+    Notify.show('All files removed','info');
+  });
+};
+
+function canRun(){
+  return App.files.ucSales.length>0 && App.files.ucReturn.length>0 && App.files.sap.length>0;
+}
+
+function buildUploadZone(cat){
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `
+    <div class="card-header"><div><h3>${cat.title}${cat.required?'':' <span class="badge badge-neutral">Optional</span>'}</h3><div class="desc">${cat.desc}</div></div></div>
+    <div class="upload-zone" data-cat="${cat.key}">
+      <div class="uz-icon">&#8593;</div>
+      <h4>Drag &amp; Drop Files Here</h4>
+      <p>or click Browse Files &nbsp;•&nbsp; CSV, XLS, XLSX, XLSM</p>
+      <input type="file" multiple accept=".csv,.xls,.xlsx,.xlsm" style="display:none;">
+    </div>
+    <ul class="file-list" id="filelist-${cat.key}"></ul>
+  `;
+  const zone = wrap.querySelector('.upload-zone');
+  const input = wrap.querySelector('input');
+  zone.addEventListener('click', ()=> input.click());
+  input.addEventListener('change', (e)=> handleFiles(cat.key, [...e.target.files]));
+  ['dragenter','dragover'].forEach(ev=> zone.addEventListener(ev, e=>{ e.preventDefault(); zone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev=> zone.addEventListener(ev, e=>{ e.preventDefault(); zone.classList.remove('drag'); }));
+  zone.addEventListener('drop', e=>{
+    const files = [...e.dataTransfer.files].filter(f=>/\.(csv|xls|xlsx|xlsm)$/i.test(f.name));
+    if(files.length) handleFiles(cat.key, files);
+  });
+  renderFileList(cat.key, wrap);
+  return wrap;
+}
+
+async function handleFiles(cat, fileArr){
+  if(!fileArr.length) return;
+  App.files[cat] = App.files[cat].concat(fileArr);
+  syncAfterFileChange(cat);
+  Notify.show(fileArr.length+' file(s) added to '+fileLabel(cat), 'success');
+  // parse + validate immediately
+  const results = await App.FileEngine.ingestFiles(cat, fileArr);
+  App.validation = App.validation.filter(v=>v.category!==cat || !fileArr.find(f=>f.name===v.file));
+  App.validation = App.validation.concat(results);
+  results.forEach(r=>{ if(r.status!=='Invalid') App.raw[cat] = App.raw[cat].concat(r.data); });
+  syncAfterFileChange(cat);
+}
+function fileLabel(cat){ return {ucSales:'UC Sales',ucReturn:'UC Return',sap:'SAP',itPending:'IT Pending'}[cat]; }
+
+// Central refresh: updates the full Upload Files page (if present) AND the always-visible
+// Quick Upload Bar, regardless of which view the user is currently on.
+function syncAfterFileChange(cat){
+  refreshFileList(cat);
+  const vtw = document.getElementById('validationTableWrap');
+  if(vtw) vtw.innerHTML = validationTableHtml();
+  const runBtn = document.getElementById('runReconBtn');
+  if(runBtn) runBtn.disabled = !canRun();
+  if(App.__renderQuickBar) App.__renderQuickBar();
+}
+function refreshFileList(cat){
+  const ul = document.getElementById('filelist-'+cat);
+  if(!ul) return;
+  renderFileListInto(ul, cat);
+}
+function renderFileList(cat, wrap){
+  const ul = wrap.querySelector('#filelist-'+cat);
+  renderFileListInto(ul, cat);
+}
+function renderFileListInto(ul, cat){
+  ul.innerHTML = App.files[cat].map((f,i)=>{
+    const kb = (f.size/1024).toFixed(1);
+    return `<li><span class="fname">${U.escapeHtml(f.name)}</span><span class="fmeta">${kb} KB</span>
+      <button class="frm" data-cat="${cat}" data-idx="${i}" title="Remove">&times;</button></li>`;
+  }).join('') || `<li style="color:var(--text-faint);justify-content:center;">No files uploaded</li>`;
+  ul.querySelectorAll('.frm').forEach(btn=> btn.addEventListener('click', ()=>{
+    const c = btn.dataset.cat, idx = +btn.dataset.idx;
+    const removed = App.files[c].splice(idx,1)[0];
+    App.validation = App.validation.filter(v=> !(v.category===c && v.file===removed.name));
+    App.raw[c] = App.raw[c].filter(r=> r.__srcFile!==removed.name);
+    syncAfterFileChange(c);
+  }));
+}
+
+function validationTableHtml(){
+  if(!App.validation.length) return `<p style="color:var(--text-faint);font-size:12.5px;">No files uploaded yet.</p>`;
+  const rows = App.validation.map(v=>{
+    const badge = v.status==='Valid'?'badge-good':v.status==='Warning'?'badge-warn':'badge-bad';
+    return `<tr><td>${U.escapeHtml(v.file)}</td><td>${v.type}</td><td class="num">${U.fmtNum(v.rows)}</td>
+      <td><span class="badge ${badge}">${v.status}</span></td><td>${v.missing.length? U.escapeHtml(v.missing.join(', ')):'—'}</td></tr>`;
+  }).join('');
+  return `<div class="table-wrap"><table><thead><tr><th>File</th><th>Type</th><th>Rows</th><th>Status</th><th>Missing Columns</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+App.__uploadHelpers = { canRun, handleFiles };
+
+/* ---------------- Processing modal + run ---------------- */
+// Brief, generic status messages only — no detailed step-by-step log is shown to the user.
+const PROC_MESSAGES = ['Reading your files…','Matching records…','Comparing quantities and values…','Preparing your results…'];
+async function runReconciliation(){
+  const modal = document.getElementById('procModal');
+  const fill = document.getElementById('procProgressFill');
+  const statusText = document.getElementById('procStatusText');
+  modal.classList.add('show');
+  fill.style.width='0%';
+  const start = performance.now();
+  try{
+    const stepMs = 220;
+    for(let i=0;i<PROC_MESSAGES.length;i++){
+      statusText.textContent = PROC_MESSAGES[i];
+      await new Promise(r=>setTimeout(r, stepMs));
+      if(i===1){ App.Engine.reconcile(); } // heavy work happens mid-sequence
+      fill.style.width = Math.round(((i+1)/PROC_MESSAGES.length)*100)+'%';
+    }
+    App.runMeta = {
+      runDate: new Date().toISOString().slice(0,10),
+      runTime: new Date().toLocaleTimeString(),
+      ucSalesFiles: App.files.ucSales.length, ucReturnFiles: App.files.ucReturn.length,
+      sapFiles: App.files.sap.length, itFileUploaded: App.files.itPending.length>0,
+      ucSalesRecords: App.raw.ucSales.length, ucReturnRecords: App.raw.ucReturn.length,
+      sapRecords: App.raw.sap.length, itPendingRecords: App.raw.itPending.length,
+      tolerance: App.settings.tolerance, elapsedMs: Math.round(performance.now()-start)
+    };
+    setTimeout(()=>{
+      modal.classList.remove('show');
+      Notify.show('Reconciliation completed successfully','success');
+      document.getElementById('downloadBtnTop').style.display='inline-flex';
+      Views.goTo('dashboard');
+    }, 350);
+  }catch(err){
+    modal.classList.remove('show');
+    console.error(err);
+    Notify.show('Reconciliation failed — check your files and try again','error');
+  }
+}
+Views.runReconciliation = runReconciliation;
+
+App.__charts = charts;
+})();
+
+
+(function(){
+'use strict';
+const U = App.U;
+const Views = App.Views;
+const charts = App.__charts;
+
+/* ---------------- Global Filter Bar (shared component) ---------------- */
+function filterBarHtml(){
+  const c = App.computed;
+  const channels = [...new Set(c.detailed.map(r=>r.channel).filter(Boolean))].sort();
+  const ucChannels = [...new Set(c.detailed.map(r=>r.ucChannel).filter(Boolean))].sort();
+  const marketplaces = [...new Set(c.detailed.map(r=>r.marketplace).filter(Boolean))].sort();
+  const months = [...new Set(c.detailed.map(r=>r.month).filter(Boolean))];
+  const remarks = [...new Set(c.detailed.map(r=>r.remark).filter(Boolean))]
+    .sort((a,b)=>{
+      const pa = App.Engine.REMARK_ORDER.indexOf(a), pb = App.Engine.REMARK_ORDER.indexOf(b);
+      if(pa>-1 && pb>-1) return pa-pb;
+      if(pa>-1) return -1; if(pb>-1) return 1;
+      return a.localeCompare(b);
+    });
+  const f = App.filters;
+  const opt = (arr, val)=> arr.map(x=>`<option value="${U.escapeHtml(x)}" ${x===val?'selected':''}>${U.escapeHtml(x)}</option>`).join('');
+  return `
+  <div class="card">
+    <div class="filter-bar">
+      <div class="filter-field"><label>Date From</label><input type="date" class="filter-input" id="f_dateFrom" value="${f.dateFrom}"></div>
+      <div class="filter-field"><label>Date To</label><input type="date" class="filter-input" id="f_dateTo" value="${f.dateTo}"></div>
+      <div class="filter-field"><label>Month</label><select class="filter-select" id="f_month"><option value="">All</option>${opt(months,f.month)}</select></div>
+      <div class="filter-field"><label>SAP Channel</label><select class="filter-select" id="f_sapChannel"><option value="">All</option>${opt(channels,f.sapChannel)}</select></div>
+      <div class="filter-field"><label>UC Channel</label><select class="filter-select" id="f_ucChannel"><option value="">All</option>${opt(ucChannels,f.ucChannel)}</select></div>
+      <div class="filter-field"><label>Marketplace</label><select class="filter-select" id="f_marketplace"><option value="">All</option>${opt(marketplaces,f.marketplace)}</select></div>
+      <div class="filter-field"><label>Sales / Returns</label><select class="filter-select" id="f_mode">
+        <option value="combined" ${f.mode==='combined'?'selected':''}>Combined</option>
+        <option value="sales" ${f.mode==='sales'?'selected':''}>Sales</option>
+        <option value="returns" ${f.mode==='returns'?'selected':''}>Returns</option></select></div>
+      <div class="filter-field"><label>Final Remark</label><select class="filter-select" id="f_remark"><option value="">All</option>${opt(remarks,f.remark)}</select></div>
+      <div class="filter-field"><label>Order Number</label><input class="filter-input" id="f_order" placeholder="search order" value="${U.escapeHtml(f.order)}"></div>
+      <div class="filter-field"><label>SKU / Material Code</label><input class="filter-input" id="f_sku" placeholder="search SKU" value="${U.escapeHtml(f.sku)}"></div>
+      <div class="filter-field">&nbsp;<div style="display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" id="applyFiltersBtn">Apply Filters</button>
+        <button class="btn btn-ghost btn-sm" id="clearFiltersBtn">Clear Filters</button>
+      </div></div>
+    </div>
+  </div>`;
+}
+function bindFilterBar(onChange){
+  const inputEls = {};
+  ['dateFrom','dateTo','month','sapChannel','ucChannel','marketplace','mode','remark','order','sku'].forEach(k=>{
+    const el = document.getElementById('f_'+k);
+    if(!el) return;
+    inputEls[k] = el;
+    const ev = (el.tagName==='SELECT'||el.type==='date') ? 'change' : 'input';
+    // Filters already apply live as you type/select (debounced) — Apply Filters below is
+    // there for certainty, in case you'd rather trigger it explicitly.
+    el.addEventListener(ev, U.debounce(()=>{ App.filters[k]=el.value; onChange(); },250));
+  });
+  const applyBtn = document.getElementById('applyFiltersBtn');
+  if(applyBtn) applyBtn.addEventListener('click', ()=>{
+    Object.keys(inputEls).forEach(k=>{ App.filters[k]=inputEls[k].value; });
+    onChange();
+    Notify.show('Filters applied','success');
+  });
+  const clearBtn = document.getElementById('clearFiltersBtn');
+  if(clearBtn) clearBtn.addEventListener('click', ()=>{
+    App.filters = { dateFrom:'',dateTo:'',month:'',sapChannel:'',ucChannel:'',marketplace:'',mode:'combined',remark:'',order:'',sku:'' };
+    onChange();
+  });
+}
+App.filterBarHtml = filterBarHtml;
+App.bindFilterBar = bindFilterBar;
+
+/* ================================================================
+   DASHBOARD VIEW
+   ================================================================ */
+Views.render_dashboard = function(el){
+  el.innerHTML = filterBarHtml() + `<div id="dashBody"></div>`;
+  bindFilterBar(()=> renderDashBody());
+  renderDashBody();
+};
+
+const DASH_REMARK_KPIS = [
+  {label:'Matched', cls:'c-good'}, {label:'Round Off', cls:'c-good'},
+  {label:'Partial Sales', cls:'c-warn'}, {label:'Partial Return', cls:'c-warn'},
+  {label:'Quantity Mismatch', cls:'c-warn'}, {label:'Value Mismatch', cls:'c-warn'},
+  {label:'Sales Not Posted in SAP', cls:'c-bad'}, {label:'Return Not Posted in SAP', cls:'c-bad'},
+  {label:'Order/SKU Not Found in SAP', cls:'c-bad'}
+];
+
+function renderDashBody(){
+  const body = document.getElementById('dashBody');
+  if(!body) return;
+  const records = App.Engine.applyFilters(App.computed.detailed);
+  const sum = (arr,f)=> arr.reduce((a,r)=>a+f(r),0);
+  const countRemark = (label)=> records.filter(r=>r.remark.includes(label)).length;
+  const itCount = records.filter(r=>r.itPending).length;
+  const matchRate = App.Engine.matchRate(records);
+
+  const kpi = (label,value,sub,cls,onclick)=>`<div class="kpi ${cls}" ${onclick?`onclick="${onclick}"`:''}><span class="kpi-bar"></span>
+    <div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-sub">${sub||''}</div></div>`;
+
+  body.innerHTML = `
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><h3>Match Rate</h3><div class="desc">(Matched + Round Off) / Total Reconcilable Order-Material Combinations · UC is the base — SAP-only records are never added</div></div>
+      <div style="font-size:32px;font-weight:800;font-family:var(--font-display);color:${matchRate>=90?'var(--good)':matchRate>=70?'var(--warn)':'var(--bad)'}">${U.fmtPct(matchRate)}</div>
+    </div>
+
+    <div class="card-header" style="margin-top:20px;"><h3>Sales</h3></div>
+    <div class="grid grid-4">
+      ${kpi('UC Sales Orders', U.fmtNum(new Set(records.filter(r=>r.ucSalesQty>0).map(r=>r.order)).size),'unique orders','c-accent')}
+      ${kpi('SAP Sales Orders', U.fmtNum(new Set(records.filter(r=>r.sapSalesQty>0).map(r=>r.order)).size),'unique orders','c-info')}
+      ${kpi('UC Sales Qty', U.fmtNum(sum(records,r=>r.ucSalesQty)),'row count','c-accent')}
+      ${kpi('SAP Sales Qty', U.fmtNum(sum(records,r=>r.sapSalesQty)),'sum quantity','c-info')}
+      ${kpi('UC Sales Value', U.fmtCurrency(sum(records,r=>r.ucSalesValue)),'sum total price','c-good')}
+      ${kpi('SAP Sales Value', U.fmtCurrency(sum(records,r=>r.sapSalesValue)),'net value + tax','c-good')}
+    </div>
+
+    <div class="card-header" style="margin-top:20px;"><h3>Returns</h3></div>
+    <div class="grid grid-4">
+      ${kpi('UC Return Orders', U.fmtNum(new Set(records.filter(r=>r.ucReturnQty>0).map(r=>r.order)).size),'unique orders','c-accent')}
+      ${kpi('SAP Return Orders', U.fmtNum(new Set(records.filter(r=>r.sapReturnQty>0).map(r=>r.order)).size),'unique orders','c-info')}
+      ${kpi('UC Return Qty', U.fmtNum(sum(records,r=>r.ucReturnQty)),'sum qty','c-accent')}
+      ${kpi('SAP Return Qty', U.fmtNum(sum(records,r=>r.sapReturnQty)),'sum qty','c-info')}
+      ${kpi('UC Return Value', U.fmtCurrency(sum(records,r=>r.ucReturnValue)),'sum total','c-warn')}
+      ${kpi('SAP Return Value', U.fmtCurrency(sum(records,r=>r.sapReturnValue)),'net value + tax','c-warn')}
+    </div>
+
+    <div class="card-header" style="margin-top:20px;"><h3>Reconciliation</h3><div class="desc" style="width:100%;">Order ID + Material Code combinations, classified by final remark</div></div>
+    <div class="grid grid-4">
+      ${DASH_REMARK_KPIS.map(k=>kpi(k.label, U.fmtNum(countRemark(k.label)), '', k.cls, `App.Views.drillTo('${k.label.replace(/'/g,"\\'")}')`)).join('')}
+      ${kpi('SAP Pending / IT', U.fmtNum(itCount),'explained by IT Pending file','c-info',`App.Views.drillTo('SAP Pending')`)}
+    </div>
+
+    <div class="grid grid-2" style="margin-top:20px;">
+      <div class="card"><div class="card-header"><h3>Records by Final Remark</h3></div><div class="chart-box"><canvas id="chartRemarks"></canvas></div></div>
+      <div class="card"><div class="card-header"><h3>Sales Value: UC vs SAP by Channel</h3></div><div class="chart-box"><canvas id="chartChValue"></canvas></div></div>
+    </div>
+  `;
+  drawRemarksChart(records);
+  drawChannelValueChart(records);
+}
+Views.renderDashBody = renderDashBody;
+Views.drillTo = function(remark){
+  App.filters.remark = remark;
+  Views.goTo('detailed');
+};
+
+function themeColor(varName){
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+function chartTextColor(){ return themeColor('--text-dim'); }
+function chartGridColor(){ return themeColor('--border'); }
+
+function drawRemarksChart(records){
+  const ctx = document.getElementById('chartRemarks'); if(!ctx) return;
+  if(typeof Chart==='undefined'){ App.drawEmptyChart(ctx, 'Chart library failed to load — check your internet connection'); return; }
+  const pivot = App.Engine.aggPivot(records);
+  if(charts.remarks){ charts.remarks.destroy(); delete charts.remarks; }
+  if(!pivot.length){ App.drawEmptyChart(ctx); return; }
+  const palette = [themeColor('--good'),'#4dd08a',themeColor('--warn'),'#e8934a',themeColor('--bad'),'#b23a54',themeColor('--info'),'#7a6fd6','#c77dff','#5c9df0'];
+  charts.remarks = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels: pivot.map(p=>p.remark), datasets:[{ data: pivot.map(p=>p.count), backgroundColor: pivot.map((p,i)=>palette[i%palette.length]) }]},
+    options:{ plugins:{legend:{position:'right',labels:{color:chartTextColor(),boxWidth:12,font:{size:10}}}}, maintainAspectRatio:false }
+  });
+}
+function drawChannelValueChart(records){
+  const ctx = document.getElementById('chartChValue'); if(!ctx) return;
+  if(typeof Chart==='undefined'){ App.drawEmptyChart(ctx, 'Chart library failed to load — check your internet connection'); return; }
+  const agg = App.Engine.aggChannelWise(records);
+  if(charts.chValue){ charts.chValue.destroy(); delete charts.chValue; }
+  if(!agg.length){ App.drawEmptyChart(ctx); return; }
+  charts.chValue = new Chart(ctx, {
+    type:'bar',
+    data:{ labels: agg.map(a=>a.channel||'(none)'), datasets:[
+      { label:'UC Value', data: agg.map(a=>a.ucSalesValue), backgroundColor: themeColor('--accent') },
+      { label:'SAP Value', data: agg.map(a=>a.sapSalesValue), backgroundColor: themeColor('--accent-2') }
+    ]},
+    options:{ maintainAspectRatio:false, scales:{ x:{ticks:{color:chartTextColor()},grid:{color:chartGridColor()}}, y:{ticks:{color:chartTextColor()},grid:{color:chartGridColor()}} },
+      plugins:{legend:{labels:{color:chartTextColor()}}} }
+  });
+}
+App.__dashCharts = { drawRemarksChart, drawChannelValueChart };
+})();
+
+
+(function(){
+'use strict';
+const U = App.U;
+const Views = App.Views;
+const charts = App.__charts;
+function themeColor(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+/* ================= DAY WISE ================= */
+Views.render_daywise = function(el){
+  el.innerHTML = App.filterBarHtml() + `<div id="dwBody"></div>`;
+  App.bindFilterBar(renderDW);
+  renderDW();
+};
+function renderDW(){
+  const body = document.getElementById('dwBody'); if(!body) return;
+  const records = App.Engine.applyFilters(App.computed.detailed);
+  const agg = App.Engine.aggDayWise(records);
+  const rows = agg.map(g=>`<tr>
+    <td>${U.fmtDateDMY(g.date)}</td><td>${U.escapeHtml(g.channel||'-')}</td>
+    <td class="num">${U.fmtNum(g.ucSalesQty)}</td><td class="num">${U.fmtNum(g.sapSalesQty)}</td><td class="num">${U.fmtNum(g.ucSalesQty-g.sapSalesQty)}</td>
+    <td class="num">${U.fmtCurrency(g.ucSalesValue)}</td><td class="num">${U.fmtCurrency(g.sapSalesValue)}</td><td class="num">${U.fmtCurrency(g.ucSalesValue-g.sapSalesValue)}</td>
+    <td class="num">${U.fmtNum(g.ucReturnQty)}</td><td class="num">${U.fmtNum(g.sapReturnQty)}</td>
+    <td class="num">${U.fmtCurrency(g.ucReturnValue)}</td><td class="num">${U.fmtCurrency(g.sapReturnValue)}</td>
+  </tr>`).join('') || `<tr><td colspan="12" style="text-align:center;color:var(--text-faint);">No data for selected filters</td></tr>`;
+  body.innerHTML = `
+    <div class="grid grid-2" style="margin-top:16px;">
+      <div class="card"><div class="card-header"><h3>Daily UC vs SAP Sales Value</h3></div><div class="chart-box sm"><canvas id="dwChartValue"></canvas></div></div>
+      <div class="card"><div class="card-header"><h3>Daily UC vs SAP Sales Quantity</h3></div><div class="chart-box sm"><canvas id="dwChartQty"></canvas></div></div>
+      <div class="card"><div class="card-header"><h3>Daily UC vs SAP Return Value</h3></div><div class="chart-box sm"><canvas id="dwChartRetValue"></canvas></div></div>
+      <div class="card"><div class="card-header"><h3>Daily UC vs SAP Return Quantity</h3></div><div class="chart-box sm"><canvas id="dwChartRetQty"></canvas></div></div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><h3>Day Wise Recon</h3><button class="btn btn-sm" onclick="App.ExportEngine.downloadCsv(App.Engine.aggDayWise(App.Engine.applyFilters(App.computed.detailed)),'day_wise_recon')">Download CSV</button></div>
+      <div class="table-wrap"><table><thead><tr>
+        <th>Date</th><th>Channel</th><th>UC Sales Qty</th><th>SAP Sales Qty</th><th>Qty Diff</th>
+        <th>UC Sales Value</th><th>SAP Sales Value</th><th>Value Diff</th>
+        <th>UC Return Qty</th><th>SAP Return Qty</th><th>UC Return Value</th><th>SAP Return Value</th>
+      </tr></thead><tbody>${rows}</tbody></table></div>
+    </div>`;
+  lineChart('dwChartValue', agg.map(a=>U.fmtDateDMY(a.date)), [{label:'UC',data:agg.map(a=>a.ucSalesValue),color:'--accent'},{label:'SAP',data:agg.map(a=>a.sapSalesValue),color:'--accent-2'}]);
+  lineChart('dwChartQty', agg.map(a=>U.fmtDateDMY(a.date)), [{label:'UC',data:agg.map(a=>a.ucSalesQty),color:'--accent'},{label:'SAP',data:agg.map(a=>a.sapSalesQty),color:'--accent-2'}]);
+  lineChart('dwChartRetValue', agg.map(a=>U.fmtDateDMY(a.date)), [{label:'UC',data:agg.map(a=>a.ucReturnValue),color:'--warn'},{label:'SAP',data:agg.map(a=>a.sapReturnValue),color:'--bad'}]);
+  lineChart('dwChartRetQty', agg.map(a=>U.fmtDateDMY(a.date)), [{label:'UC',data:agg.map(a=>a.ucReturnQty),color:'--warn'},{label:'SAP',data:agg.map(a=>a.sapReturnQty),color:'--bad'}]);
+}
+function lineChart(id, labels, series){
+  const ctx = document.getElementById(id); if(!ctx) return;
+  if(typeof Chart==='undefined'){ App.drawEmptyChart(ctx, 'Chart library failed to load — check your internet connection'); return; }
+  if(charts[id]){ charts[id].destroy(); delete charts[id]; }
+  if(!labels.length){ App.drawEmptyChart(ctx); return; }
+  charts[id] = new Chart(ctx, { type:'line',
+    data:{ labels, datasets: series.map(s=>({ label:s.label, data:s.data, borderColor:themeColor(s.color), backgroundColor:themeColor(s.color), tension:.3, pointRadius:2 })) },
+    options:{ maintainAspectRatio:false, scales:{ x:{ticks:{color:themeColor('--text-dim'),maxRotation:0,autoSkip:true},grid:{color:themeColor('--border')}}, y:{ticks:{color:themeColor('--text-dim')},grid:{color:themeColor('--border')}} },
+      plugins:{legend:{labels:{color:themeColor('--text-dim')}}} }
+  });
+}
+
+/* ================= MONTHLY ================= */
+Views.render_monthwise = function(el){
+  el.innerHTML = App.filterBarHtml() + `<div id="mwBody"></div>`;
+  App.bindFilterBar(renderMW);
+  renderMW();
+};
+function renderMW(){
+  const body = document.getElementById('mwBody'); if(!body) return;
+  const records = App.Engine.applyFilters(App.computed.detailed);
+  const agg = App.Engine.aggMonthWise(records);
+  const rows = agg.map(g=>{
+    const pct = g.total? (g.matched/g.total*100):0;
+    return `<tr><td>${g.month}</td><td class="num">${U.fmtNum(g.ucSalesQty)}</td><td class="num">${U.fmtNum(g.sapSalesQty)}</td>
+    <td class="num">${U.fmtCurrency(g.ucSalesValue)}</td><td class="num">${U.fmtCurrency(g.sapSalesValue)}</td><td class="num">${U.fmtCurrency(g.ucSalesValue-g.sapSalesValue)}</td>
+    <td class="num">${U.fmtNum(g.ucReturnQty)}</td><td class="num">${U.fmtNum(g.sapReturnQty)}</td>
+    <td class="num">${U.fmtCurrency(g.ucReturnValue)}</td><td class="num">${U.fmtCurrency(g.sapReturnValue)}</td>
+    <td class="num">${U.fmtCurrency(g.ucReturnValue-g.sapReturnValue)}</td><td class="num">${U.fmtPct(pct)}</td></tr>`;
+  }).join('') || `<tr><td colspan="12" style="text-align:center;color:var(--text-faint);">No data</td></tr>`;
+  body.innerHTML = `
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><h3>Monthly Sales Value: UC vs SAP</h3></div>
+      <div class="chart-box"><canvas id="mwChart"></canvas></div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><h3>Monthly Recon</h3><button class="btn btn-sm" onclick="App.ExportEngine.downloadCsv(App.Engine.aggMonthWise(App.Engine.applyFilters(App.computed.detailed)),'monthly_recon')">Download CSV</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Month</th><th>UC Sales Qty</th><th>SAP Sales Qty</th><th>UC Sales Value</th><th>SAP Sales Value</th><th>Sales Diff</th>
+      <th>UC Return Qty</th><th>SAP Return Qty</th><th>UC Return Value</th><th>SAP Return Value</th><th>Return Diff</th><th>Match %</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    </div>`;
+  lineChart('mwChart', agg.map(a=>a.month), [{label:'UC',data:agg.map(a=>a.ucSalesValue),color:'--accent'},{label:'SAP',data:agg.map(a=>a.sapSalesValue),color:'--accent-2'}]);
+}
+
+/* ================= CHANNEL WISE ================= */
+Views.render_channelwise = function(el){
+  el.innerHTML = App.filterBarHtml() + `<div id="cwBody"></div>`;
+  App.bindFilterBar(renderCW);
+  renderCW();
+};
+function renderCW(){
+  const body = document.getElementById('cwBody'); if(!body) return;
+  const records = App.Engine.applyFilters(App.computed.detailed);
+  const agg = App.Engine.aggChannelWise(records);
+  const rows = agg.map(g=>{
+    const pct = g.total? (g.matched/g.total*100):0;
+    return `<tr><td>${U.escapeHtml(g.channel)}</td><td>${U.escapeHtml(g.marketplace||'(Unmapped)')}</td>
+    <td class="num">${U.fmtNum(g.ucSalesQty)}</td><td class="num">${U.fmtNum(g.sapSalesQty)}</td><td class="num">${U.fmtNum(g.ucSalesQty-g.sapSalesQty)}</td>
+    <td class="num">${U.fmtCurrency(g.ucSalesValue)}</td><td class="num">${U.fmtCurrency(g.sapSalesValue)}</td><td class="num">${U.fmtCurrency(g.ucSalesValue-g.sapSalesValue)}</td>
+    <td class="num">${U.fmtNum(g.ucReturnQty)}</td><td class="num">${U.fmtNum(g.sapReturnQty)}</td>
+    <td class="num">${U.fmtCurrency(g.ucReturnValue)}</td><td class="num">${U.fmtCurrency(g.sapReturnValue)}</td><td class="num">${U.fmtPct(pct)}</td></tr>`;
+  }).join('') || `<tr><td colspan="13" style="text-align:center;color:var(--text-faint);">No data</td></tr>`;
+  body.innerHTML = `
+    <div class="grid grid-2" style="margin-top:16px;">
+      <div class="card"><div class="card-header"><h3>Sales Value by Channel</h3></div><div class="chart-box sm"><canvas id="cwChart1"></canvas></div></div>
+      <div class="card"><div class="card-header"><h3>Return Value by Channel</h3></div><div class="chart-box sm"><canvas id="cwChart2"></canvas></div></div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><h3>Channel Wise Recon</h3><button class="btn btn-sm" onclick="App.ExportEngine.downloadCsv(App.Engine.aggChannelWise(App.Engine.applyFilters(App.computed.detailed)),'channel_wise_recon')">Download CSV</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Channel</th><th>Marketplace</th><th>UC Sales Qty</th><th>SAP Sales Qty</th><th>Qty Diff</th>
+      <th>UC Sales Value</th><th>SAP Sales Value</th><th>Value Diff</th><th>UC Return Qty</th><th>SAP Return Qty</th>
+      <th>UC Return Value</th><th>SAP Return Value</th><th>Match %</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </div>`;
+  barChart('cwChart1', agg.map(a=>a.channel), [{label:'UC',data:agg.map(a=>a.ucSalesValue),color:'--accent'},{label:'SAP',data:agg.map(a=>a.sapSalesValue),color:'--accent-2'}]);
+  barChart('cwChart2', agg.map(a=>a.channel), [{label:'UC',data:agg.map(a=>a.ucReturnValue),color:'--warn'},{label:'SAP',data:agg.map(a=>a.sapReturnValue),color:'--bad'}]);
+}
+function barChart(id, labels, series){
+  const ctx = document.getElementById(id); if(!ctx) return;
+  if(typeof Chart==='undefined'){ App.drawEmptyChart(ctx, 'Chart library failed to load — check your internet connection'); return; }
+  if(charts[id]){ charts[id].destroy(); delete charts[id]; }
+  if(!labels.length){ App.drawEmptyChart(ctx); return; }
+  charts[id] = new Chart(ctx, { type:'bar',
+    data:{ labels, datasets: series.map(s=>({ label:s.label, data:s.data, backgroundColor: themeColor(s.color) })) },
+    options:{ maintainAspectRatio:false, scales:{ x:{ticks:{color:themeColor('--text-dim')},grid:{color:themeColor('--border')}}, y:{ticks:{color:themeColor('--text-dim')},grid:{color:themeColor('--border')}} },
+      plugins:{legend:{labels:{color:themeColor('--text-dim')}}} }
+  });
+}
+App.__genericCharts = { lineChart, barChart };
+})();
+
+
+(function(){
+'use strict';
+const U = App.U;
+const Views = App.Views;
+
+/* ================= ORDER LEVEL ================= */
+Views.render_orderlevel = function(el){
+  el.innerHTML = App.filterBarHtml() + `<div id="olBody"></div>`;
+  App.bindFilterBar(renderOL);
+  renderOL();
+};
+function renderOL(){
+  const body = document.getElementById('olBody'); if(!body) return;
+  const records = App.Engine.applyFilters(App.computed.detailed);
+  let agg = App.Engine.aggOrderLevel(records);
+  agg.sort((a,b)=> (Math.abs(b.salesValueDiff)+Math.abs(b.returnValueDiff)) - (Math.abs(a.salesValueDiff)+Math.abs(a.returnValueDiff)));
+  const rows = agg.slice(0,500).map(g=>`<tr><td>${U.escapeHtml(g.order)}</td><td class="num">${g.skuCount}</td>
+    <td class="num">${U.fmtNum(g.ucSalesQty)}</td><td class="num">${U.fmtNum(g.sapSalesQty)}</td><td class="num">${U.fmtNum(g.salesQtyDiff)}</td>
+    <td class="num">${U.fmtCurrency(g.ucSalesValue)}</td><td class="num">${U.fmtCurrency(g.sapSalesValue)}</td><td class="num">${U.fmtCurrency(g.salesValueDiff)}</td>
+    <td class="num">${U.fmtNum(g.ucReturnQty)}</td><td class="num">${U.fmtNum(g.sapReturnQty)}</td><td class="num">${U.fmtNum(g.returnQtyDiff)}</td>
+    <td class="num">${U.fmtCurrency(g.ucReturnValue)}</td><td class="num">${U.fmtCurrency(g.sapReturnValue)}</td><td class="num">${U.fmtCurrency(g.returnValueDiff)}</td>
+    <td>${remarkBadge(g.status)}</td></tr>`).join('') || `<tr><td colspan="14" style="text-align:center;color:var(--text-faint);">No data</td></tr>`;
+  body.innerHTML = `<div class="card" style="margin-top:16px;">
+    <div class="card-header"><h3>Order Level Recon</h3><div class="desc">Top 500 orders by absolute value difference · ${U.fmtNum(agg.length)} orders total</div>
+    <button class="btn btn-sm" onclick="App.ExportEngine.downloadCsv(App.Engine.aggOrderLevel(App.Engine.applyFilters(App.computed.detailed)),'order_level_recon')">Download CSV</button></div>
+    <div class="table-wrap"><table><thead><tr><th>Order ID</th><th>SKU Count</th><th>UC Sales Qty</th><th>SAP Sales Qty</th><th>Sales Qty Diff</th>
+    <th>UC Sales Value</th><th>SAP Sales Value</th><th>Sales Value Diff</th>
+    <th>UC Return Qty</th><th>SAP Return Qty</th><th>Return Qty Diff</th>
+    <th>UC Return Value</th><th>SAP Return Value</th><th>Return Value Diff</th><th>Order Status</th></tr></thead><tbody>${rows}</tbody></table></div>
+  </div>`;
+}
+
+/* ================= SKU ANALYSIS ================= */
+Views.render_skuanalysis = function(el){
+  el.innerHTML = App.filterBarHtml() + `
+    <div class="card" style="margin-top:16px;">
+      <div class="table-toolbar">
+        <label style="font-size:12px;color:var(--text-dim);">Sort by:</label>
+        <select class="filter-select" id="skuSort">
+          <option value="valueDiff">Highest value difference</option>
+          <option value="qtyDiff">Highest quantity difference</option>
+          <option value="ucValue">Highest sales value</option>
+        </select>
+      </div>
+      <div id="skuTableWrap"></div>
+    </div>`;
+  App.bindFilterBar(renderSKU);
+  document.getElementById('skuSort').addEventListener('change', renderSKU);
+  renderSKU();
+};
+function renderSKU(){
+  const wrap = document.getElementById('skuTableWrap'); if(!wrap) return;
+  const sortSel = document.getElementById('skuSort');
+  const sortBy = sortSel? sortSel.value : 'valueDiff';
+  const records = App.Engine.applyFilters(App.computed.detailed);
+  let agg = App.Engine.aggSkuLevel(records);
+  if(sortBy==='valueDiff') agg.sort((a,b)=>(Math.abs(b.salesValueDiff)+Math.abs(b.returnValueDiff))-(Math.abs(a.salesValueDiff)+Math.abs(a.returnValueDiff)));
+  else if(sortBy==='qtyDiff') agg.sort((a,b)=>(Math.abs(b.salesQtyDiff)+Math.abs(b.returnQtyDiff))-(Math.abs(a.salesQtyDiff)+Math.abs(a.returnQtyDiff)));
+  else agg.sort((a,b)=>b.ucSalesValue-a.ucSalesValue);
+  const rows = agg.slice(0,500).map(g=>`<tr><td>${U.escapeHtml(g.sku)}</td>
+    <td class="num">${U.fmtNum(g.ucSalesQty)}</td><td class="num">${U.fmtNum(g.sapSalesQty)}</td><td class="num">${U.fmtNum(g.salesQtyDiff)}</td>
+    <td class="num">${U.fmtCurrency(g.ucSalesValue)}</td><td class="num">${U.fmtCurrency(g.sapSalesValue)}</td><td class="num">${U.fmtCurrency(g.salesValueDiff)}</td>
+    <td class="num">${U.fmtNum(g.ucReturnQty)}</td><td class="num">${U.fmtNum(g.sapReturnQty)}</td><td class="num">${U.fmtNum(g.returnQtyDiff)}</td>
+    <td class="num">${U.fmtCurrency(g.ucReturnValue)}</td><td class="num">${U.fmtCurrency(g.sapReturnValue)}</td><td class="num">${U.fmtCurrency(g.returnValueDiff)}</td>
+    <td class="num">${g.orders}</td><td class="num">${U.fmtPct(g.matchPct)}</td></tr>`).join('')
+    || `<tr><td colspan="15" style="text-align:center;color:var(--text-faint);">No data</td></tr>`;
+  wrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>SKU / Material Code</th>
+    <th>UC Sales Qty</th><th>SAP Sales Qty</th><th>Sales Qty Diff</th><th>UC Sales Value</th><th>SAP Sales Value</th><th>Sales Value Diff</th>
+    <th>UC Return Qty</th><th>SAP Return Qty</th><th>Return Qty Diff</th><th>UC Return Value</th><th>SAP Return Value</th><th>Return Value Diff</th>
+    <th>Orders</th><th>Match %</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+/* ================= DETAILED RECON ================= */
+Views.render_detailed = function(el){
+  App.detailedTable.page = 1;
+  el.innerHTML = App.filterBarHtml() + `
+    <div class="card" style="margin-top:16px;">
+      <div class="table-toolbar">
+        <input class="search-input" id="detSearch" placeholder="Search order, SKU, channel…">
+        <span style="flex:1"></span>
+        <button class="btn btn-sm" id="detExportView">Download Current View CSV</button>
+        <button class="btn btn-sm" id="detExportAll">Download Detailed Recon CSV</button>
+      </div>
+      <div id="detTableWrap"></div>
+      <div class="pagination" id="detPagination"></div>
+    </div>`;
+  App.bindFilterBar(renderDetailed);
+  document.getElementById('detSearch').value = App.detailedTable.search;
+  document.getElementById('detSearch').addEventListener('input', U.debounce(e=>{
+    App.detailedTable.search = e.target.value; App.detailedTable.page=1; renderDetailed();
+  },250));
+  document.getElementById('detExportView').addEventListener('click', ()=>{
+    App.ExportEngine.downloadCsv(getDetailedFiltered(), 'detailed_recon_current_view');
+  });
+  document.getElementById('detExportAll').addEventListener('click', ()=>{
+    App.ExportEngine.downloadCsv(App.computed.detailed, 'detailed_recon_full');
+  });
+  renderDetailed();
+};
+const DET_COLS = [
+  {key:'matchKey',label:'Order ID-Material Code'}, {key:'date',label:'Date',fmt:v=>U.fmtDateDMY(v)}, {key:'month',label:'Month'},
+  {key:'channel',label:'Channel'}, {key:'marketplace',label:'Marketplace'}, {key:'order',label:'Order ID'}, {key:'sku',label:'Material Code'},
+  {key:'ucSalesQty',label:'UC Sales Qty',num:true}, {key:'sapSalesQty',label:'SAP Sales Qty',num:true}, {key:'salesQtyDiff',label:'Sales Qty Diff',num:true},
+  {key:'ucSalesValue',label:'UC Sales Value',num:true,fmt:v=>U.fmtCurrency(v)}, {key:'sapSalesValue',label:'SAP Sales Value',num:true,fmt:v=>U.fmtCurrency(v)},
+  {key:'salesValueDiff',label:'Sales Value Diff',num:true,fmt:v=>U.fmtCurrency(v)},
+  {key:'ucReturnQty',label:'UC Return Qty',num:true}, {key:'sapReturnQty',label:'SAP Return Qty',num:true}, {key:'returnQtyDiff',label:'Return Qty Diff',num:true},
+  {key:'ucReturnValue',label:'UC Return Value',num:true,fmt:v=>U.fmtCurrency(v)}, {key:'sapReturnValue',label:'SAP Return Value',num:true,fmt:v=>U.fmtCurrency(v)},
+  {key:'returnValueDiff',label:'Return Value Diff',num:true,fmt:v=>U.fmtCurrency(v)},
+  {key:'remark',label:'Final Remark'}, {key:'itPending',label:'IT Pending',fmt:v=>v?'Yes':'No'}, {key:'itReason',label:'IT Pending Reason'}
+];
+function getDetailedFiltered(){
+  let records = App.Engine.applyFilters(App.computed.detailed);
+  const s = App.detailedTable.search.trim().toUpperCase();
+  if(s) records = records.filter(r=> r.order.includes(s)||r.sku.includes(s)||(r.channel||'').toUpperCase().includes(s)||(r.marketplace||'').toUpperCase().includes(s));
+  const {sortCol, sortDir} = App.detailedTable;
+  records = records.slice().sort((a,b)=>{
+    let va=a[sortCol], vb=b[sortCol];
+    if(typeof va==='string') va=va||''; if(typeof vb==='string') vb=vb||'';
+    if(va<vb) return sortDir==='asc'?-1:1;
+    if(va>vb) return sortDir==='asc'?1:-1;
+    return 0;
+  });
+  return records;
+}
+function renderDetailed(){
+  const wrap = document.getElementById('detTableWrap'); if(!wrap) return;
+  const all = getDetailedFiltered();
+  const {page, pageSize} = App.detailedTable;
+  const totalPages = Math.max(1, Math.ceil(all.length/pageSize));
+  const curPage = Math.min(page, totalPages);
+  const pageRows = all.slice((curPage-1)*pageSize, curPage*pageSize);
+  const thead = DET_COLS.map(c=>`<th data-col="${c.key}">${c.label} ${App.detailedTable.sortCol===c.key?(App.detailedTable.sortDir==='asc'?'&#9650;':'&#9660;'):''}</th>`).join('');
+  const rows = pageRows.map(r=>{
+    const tds = DET_COLS.map(c=>{
+      let v = r[c.key];
+      const disp = c.fmt? c.fmt(v) : U.escapeHtml(v===undefined||v===''?'-':v);
+      const cls = c.num? 'num':'';
+      return `<td class="${cls}">${c.key==='remark'? remarkBadge(v) : disp}</td>`;
+    }).join('');
+    return `<tr>${tds}</tr>`;
+  }).join('') || `<tr><td colspan="${DET_COLS.length}" style="text-align:center;color:var(--text-faint);">No records match your filters</td></tr>`;
+  wrap.innerHTML = `<div class="table-wrap"><table><thead><tr>${thead}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  wrap.querySelectorAll('thead th').forEach(th=> th.addEventListener('click', ()=>{
+    const col = th.dataset.col;
+    if(App.detailedTable.sortCol===col) App.detailedTable.sortDir = App.detailedTable.sortDir==='asc'?'desc':'asc';
+    else { App.detailedTable.sortCol = col; App.detailedTable.sortDir='asc'; }
+    renderDetailed();
+  }));
+  document.getElementById('detPagination').innerHTML = `
+    <span>${U.fmtNum(all.length)} records</span>
+    <button class="btn btn-sm" id="detPrev" ${curPage<=1?'disabled':''}>&larr; Prev</button>
+    <span>Page ${curPage} / ${totalPages}</span>
+    <button class="btn btn-sm" id="detNext" ${curPage>=totalPages?'disabled':''}>Next &rarr;</button>`;
+  const prev = document.getElementById('detPrev'), next = document.getElementById('detNext');
+  if(prev) prev.addEventListener('click', ()=>{ App.detailedTable.page=curPage-1; renderDetailed(); });
+  if(next) next.addEventListener('click', ()=>{ App.detailedTable.page=curPage+1; renderDetailed(); });
+}
+function remarkBadge(remark){
+  remark = remark||'';
+  let cls = 'badge-neutral';
+  if(remark==='Matched'||remark==='Round Off') cls='badge-good';
+  else if(remark.includes('Not Found in SAP')) cls='badge-bad';
+  else if(remark.includes('Not Posted in SAP')) cls='badge-bad';
+  else if(remark.includes('Partial')||remark.includes('Mismatch')) cls='badge-warn';
+  if(remark.includes('SAP Pending')) cls='badge-info';
+  return `<span class="badge ${cls}">${U.escapeHtml(remark||'-')}</span>`;
+}
+App.remarkBadge = remarkBadge;
+
+/* ================= FINAL REMARK PIVOT ================= */
+Views.render_pivot = function(el){
+  el.innerHTML = App.filterBarHtml() + `
+    <div class="grid grid-2" style="margin-top:16px;">
+      <div class="card"><div class="card-header"><h3>Records by Final Remark</h3></div><div class="chart-box"><canvas id="pivotChart"></canvas></div></div>
+      <div class="card" id="pivotTableCard"><div class="card-header"><h3>Final Remark Pivot</h3><div class="desc">Click a row to drill into Detailed Recon</div>
+      <button class="btn btn-sm" onclick="App.ExportEngine.downloadCsv(App.Engine.aggPivot(App.Engine.applyFilters(App.computed.detailed)),'final_remark_pivot')">Download CSV</button></div>
+      <div id="pivotTableWrap"></div></div>
+    </div>`;
+  App.bindFilterBar(renderPivot);
+  renderPivot();
+};
+function renderPivot(){
+  const wrap = document.getElementById('pivotTableWrap'); if(!wrap) return;
+  const records = App.Engine.applyFilters(App.computed.detailed);
+  const pivot = App.Engine.aggPivot(records);
+  const rows = pivot.map(p=>`<tr style="cursor:pointer;" onclick="App.Views.drillTo('${p.remark.replace(/'/g,"\\'")}')">
+    <td>${remarkBadge(p.remark)}</td><td class="num">${U.fmtNum(p.ucQty)}</td><td class="num">${U.fmtNum(p.sapQty)}</td>
+    <td class="num">${U.fmtNum(p.qtyDiff)}</td><td class="num">${U.fmtCurrency(p.ucValue)}</td><td class="num">${U.fmtCurrency(p.sapValue)}</td>
+    <td class="num">${U.fmtCurrency(p.valueDiff)}</td><td class="num">${U.fmtNum(p.count)}</td></tr>`).join('');
+  wrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Final Remark</th><th>UC Qty</th><th>SAP Qty</th><th>Qty Diff</th>
+    <th>UC Value</th><th>SAP Value</th><th>Value Diff</th><th>Record Count</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const ctx = document.getElementById('pivotChart');
+  const charts = App.__charts;
+  if(ctx){
+    if(charts.pivot){ charts.pivot.destroy(); delete charts.pivot; }
+    if(typeof Chart==='undefined'){ App.drawEmptyChart(ctx, 'Chart library failed to load — check your internet connection'); }
+    else if(!pivot.length){ App.drawEmptyChart(ctx); }
+    else{
+      const tc = getComputedStyle(document.documentElement);
+      charts.pivot = new Chart(ctx, { type:'bar', data:{ labels: pivot.map(p=>p.remark), datasets:[{ label:'Record Count', data: pivot.map(p=>p.count),
+        backgroundColor: tc.getPropertyValue('--accent').trim() }]},
+        options:{ maintainAspectRatio:false, indexAxis:'y',
+          scales:{ x:{ticks:{color:tc.getPropertyValue('--text-dim').trim()},grid:{color:tc.getPropertyValue('--border').trim()}},
+                   y:{ticks:{color:tc.getPropertyValue('--text-dim').trim()},grid:{color:tc.getPropertyValue('--border').trim()}} },
+          plugins:{legend:{display:false}} } });
+    }
+  }
+}
+
+/* ================= DATA QUALITY ================= */
+Views.render_dataquality = function(el){
+  const c = App.computed;
+  const issues = computeDataQuality();
+  const rows = Object.entries(issues).map(([label,arr])=>`<tr><td>${label}</td><td class="num">${U.fmtNum(arr.length)}</td></tr>`).join('');
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-header"><h3>Data Quality Checks</h3><div class="desc">Counts of records with quality issues across all uploaded files</div></div>
+      <div class="table-wrap"><table><thead><tr><th>Issue</th><th>Count</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><h3>Unmapped UC Channels</h3><div class="desc">These UC channels have no entry in Channel Mapping</div>
+      <button class="btn btn-sm" onclick="App.Views.goTo('settings');setTimeout(()=>App.Views.selectSettingsTab('channels'),50);">Configure Channel Mapping</button></div>
+      <div class="table-wrap"><table><thead><tr><th>UC Channel</th><th>Records</th></tr></thead><tbody>${unmappedChannelRows()}</tbody></table></div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><h3>Unknown SAP Document Types</h3><div class="desc">SAP rows whose doc type isn't mapped to Sales or Returns</div></div>
+      <div class="table-wrap"><table><thead><tr><th>Doc Type</th><th>Records</th></tr></thead><tbody>${unknownDocTypeRows()}</tbody></table></div>
+    </div>`;
+};
+function computeDataQuality(){
+  const issues = { 'Blank Order Number':[], 'Blank SKU':[], 'Blank Date':[], 'Blank Total Price / Value':[], 'Blank Return Qty':[], 'Invalid / Unparsed Dates':[] };
+  App.raw.ucSales.forEach(r=>{
+    if(!String(r.order||'').trim()) issues['Blank Order Number'].push(r);
+    if(!String(r.sku||'').trim()) issues['Blank SKU'].push(r);
+    if(!r.date) issues['Blank Date'].push(r); else if(!App.U.parseDate(r.date)) issues['Invalid / Unparsed Dates'].push(r);
+    if(r.value===''||r.value===undefined) issues['Blank Total Price / Value'].push(r);
+  });
+  App.raw.ucReturn.forEach(r=>{
+    if(!String(r.order||'').trim()) issues['Blank Order Number'].push(r);
+    if(!String(r.sku||'').trim()) issues['Blank SKU'].push(r);
+    if(r.qty===''||r.qty===undefined) issues['Blank Return Qty'].push(r);
+  });
+  return issues;
+}
+function unmappedChannelRows(){
+  const c = App.computed;
+  const m = new Map();
+  c.detailed.forEach(r=>{ if(r.unmapped && r.ucChannel){ m.set(r.ucChannel,(m.get(r.ucChannel)||0)+1); } });
+  if(!m.size) return `<tr><td colspan="2" style="text-align:center;color:var(--text-faint);">No unmapped channels found</td></tr>`;
+  return [...m.entries()].map(([ch,n])=>`<tr><td>${App.U.escapeHtml(ch)}</td><td class="num">${App.U.fmtNum(n)}</td></tr>`).join('');
+}
+function unknownDocTypeRows(){
+  const unk = App.computed.unknownSapDocTypes||[];
+  const m = new Map();
+  unk.forEach(r=>{ const k=r.docType||'(blank)'; m.set(k,(m.get(k)||0)+1); });
+  if(!m.size) return `<tr><td colspan="2" style="text-align:center;color:var(--text-faint);">No unknown document types found</td></tr>`;
+  return [...m.entries()].map(([dt,n])=>`<tr><td>${App.U.escapeHtml(dt)}</td><td class="num">${App.U.fmtNum(n)}</td></tr>`).join('');
+}
+})();
+
+
+(function(){
+'use strict';
+const U = App.U;
+const Views = App.Views;
+
+const SETTINGS_TABS = [
+  {key:'channels', label:'Channel Mapping'}, {key:'doctypes', label:'SAP Document Types'},
+  {key:'tolerance', label:'Value Tolerance'}, {key:'columns', label:'Column Mapping'},
+  {key:'appearance', label:'Themes & Sound'}, {key:'data', label:'Import / Export / Reset'}
+];
+let currentSettingsTab = 'channels';
+Views.selectSettingsTab = function(tab){
+  currentSettingsTab = tab;
+  document.querySelectorAll('.settings-tab').forEach(t=> t.classList.toggle('active', t.dataset.tab===tab));
+  document.querySelectorAll('.settings-pane').forEach(p=> p.classList.toggle('active', p.id==='pane-'+tab));
+};
+
+Views.render_settings = function(el){
+  el.innerHTML = `
+    <div class="settings-nav">${SETTINGS_TABS.map(t=>`<div class="settings-tab ${t.key===currentSettingsTab?'active':''}" data-tab="${t.key}">${t.label}</div>`).join('')}</div>
+    <div id="pane-channels" class="settings-pane ${currentSettingsTab==='channels'?'active':''}">${channelMapPane()}</div>
+    <div id="pane-doctypes" class="settings-pane ${currentSettingsTab==='doctypes'?'active':''}">${docTypePane()}</div>
+    <div id="pane-tolerance" class="settings-pane ${currentSettingsTab==='tolerance'?'active':''}">${tolerancePane()}</div>
+    <div id="pane-columns" class="settings-pane ${currentSettingsTab==='columns'?'active':''}">${columnMapPane()}</div>
+    <div id="pane-appearance" class="settings-pane ${currentSettingsTab==='appearance'?'active':''}">${appearancePane()}</div>
+    <div id="pane-data" class="settings-pane ${currentSettingsTab==='data'?'active':''}">${dataPane()}</div>
+  `;
+  el.querySelectorAll('.settings-tab').forEach(t=> t.addEventListener('click', ()=> Views.selectSettingsTab(t.dataset.tab)));
+  bindChannelMapPane(el);
+  bindDocTypePane(el);
+  bindTolerancePane(el);
+  bindColumnMapPane(el);
+  bindAppearancePane(el);
+  bindDataPane(el);
+};
+
+/* ---------- Channel Mapping ---------- */
+function channelMapPane(){
+  const rows = App.settings.channelMap.map((c,i)=>`
+    <div class="form-row" data-idx="${i}">
+      <input data-f="ucChannel" value="${U.escapeHtml(c.ucChannel)}" placeholder="UC Channel">
+      <input data-f="sapChannel" value="${U.escapeHtml(c.sapChannel)}" placeholder="SAP Channel">
+      <input data-f="marketplace" value="${U.escapeHtml(c.marketplace)}" placeholder="Marketplace" style="width:120px;">
+      <label class="toggle"><input type="checkbox" data-f="active" ${c.active!==false?'checked':''}><span class="slider"></span></label>
+      <button class="btn btn-sm btn-danger" data-del="${i}">&times;</button>
+    </div>`).join('');
+  return `<div class="card"><div class="card-header"><h3>UC → SAP Channel Mapping</h3><div class="desc">Configure which UC channel maps to which SAP channel &amp; marketplace</div>
+    <button class="btn btn-sm btn-primary" id="addChannelBtn">+ Add Mapping</button></div>
+    <div style="margin-bottom:6px;display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:8px;font-size:10.5px;color:var(--text-faint);text-transform:uppercase;">
+      <span>UC Channel</span><span>SAP Channel</span><span>Marketplace</span><span>Active</span><span></span></div>
+    <div id="channelRows">${rows}</div></div>`;
+}
+function bindChannelMapPane(root){
+  const wrap = root.querySelector('#channelRows'); if(!wrap) return;
+  const readRows = ()=>{
+    App.settings.channelMap = [...wrap.querySelectorAll('.form-row')].map(row=>({
+      ucChannel: row.querySelector('[data-f=ucChannel]').value.trim(),
+      sapChannel: row.querySelector('[data-f=sapChannel]').value.trim(),
+      marketplace: row.querySelector('[data-f=marketplace]').value.trim(),
+      active: row.querySelector('[data-f=active]').checked
+    }));
+    App.saveSettings();
+  };
+  wrap.querySelectorAll('input').forEach(inp=> inp.addEventListener('change', readRows));
+  wrap.querySelectorAll('[data-del]').forEach(btn=> btn.addEventListener('click', ()=>{
+    App.settings.channelMap.splice(+btn.dataset.del,1); App.saveSettings(); Views.render_settings(document.getElementById('view-settings'));
+  }));
+  const addBtn = root.querySelector('#addChannelBtn');
+  if(addBtn) addBtn.addEventListener('click', ()=>{
+    App.settings.channelMap.push({ucChannel:'',sapChannel:'',marketplace:'',active:true});
+    App.saveSettings(); Views.render_settings(document.getElementById('view-settings'));
+  });
+}
+
+/* ---------- SAP Document Type Mapping ---------- */
+function docTypePane(){
+  const tagList = (arr, kind)=> (arr||[]).map((t,i)=>`<span class="badge badge-info" style="margin:3px 4px 0 0;">${U.escapeHtml(t)} <span style="cursor:pointer;margin-left:4px;" data-kind="${kind}" data-idx="${i}" class="dt-del">&times;</span></span>`).join('');
+  return `<div class="card">
+    <div class="card-header"><h3>SAP Document Type Mapping</h3><div class="desc">Which Sales Doc Types represent Sales vs Returns</div></div>
+    <div class="grid grid-2">
+      <div><label style="font-size:11.5px;color:var(--text-faint);text-transform:uppercase;">Sales Document Types</label>
+        <div style="margin:8px 0;">${tagList(App.settings.docTypeMap.sales,'sales')}</div>
+        <div style="display:flex;gap:6px;"><input class="filter-input" id="newSalesDT" placeholder="e.g. ZZEC" style="flex:1;"><button class="btn btn-sm" id="addSalesDT">Add</button></div>
+      </div>
+      <div><label style="font-size:11.5px;color:var(--text-faint);text-transform:uppercase;">Return Document Types</label>
+        <div style="margin:8px 0;">${tagList(App.settings.docTypeMap.returns,'returns')}</div>
+        <div style="display:flex;gap:6px;"><input class="filter-input" id="newReturnDT" placeholder="e.g. ZRD1" style="flex:1;"><button class="btn btn-sm" id="addReturnDT">Add</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+function bindDocTypePane(root){
+  const pane = root.querySelector('#pane-doctypes'); if(!pane) return;
+  pane.querySelectorAll('.dt-del').forEach(x=> x.addEventListener('click', ()=>{
+    App.settings.docTypeMap[x.dataset.kind].splice(+x.dataset.idx,1);
+    App.saveSettings(); Views.render_settings(document.getElementById('view-settings'));
+  }));
+  const addSales = pane.querySelector('#addSalesDT'), addReturn = pane.querySelector('#addReturnDT');
+  if(addSales) addSales.addEventListener('click', ()=>{
+    const v = pane.querySelector('#newSalesDT').value.trim().toUpperCase();
+    if(v){ App.settings.docTypeMap.sales.push(v); App.saveSettings(); Views.render_settings(document.getElementById('view-settings')); }
+  });
+  if(addReturn) addReturn.addEventListener('click', ()=>{
+    const v = pane.querySelector('#newReturnDT').value.trim().toUpperCase();
+    if(v){ App.settings.docTypeMap.returns.push(v); App.saveSettings(); Views.render_settings(document.getElementById('view-settings')); }
+  });
+}
+
+/* ---------- Tolerance ---------- */
+function tolerancePane(){
+  return `<div class="card"><div class="card-header"><h3>Value Tolerance</h3><div class="desc">Absolute value difference (₹) within which a matching-quantity record is marked "Round Off" instead of a mismatch</div></div>
+    <div class="field-block" style="max-width:220px;"><label>Tolerance (₹)</label><input type="number" id="toleranceInput" value="${App.settings.tolerance}" min="0" step="1"></div>
+  </div>`;
+}
+function bindTolerancePane(root){
+  const inp = root.querySelector('#toleranceInput'); if(!inp) return;
+  inp.addEventListener('change', ()=>{
+    App.settings.tolerance = Math.max(0, Number(inp.value)||0);
+    App.saveSettings();
+    Notify.show('Tolerance updated to ₹'+App.settings.tolerance+'. Re-run reconciliation to apply.','info');
+  });
+}
+
+/* ---------- Column Mapping ---------- */
+function columnMapPane(){
+  const groups = [
+    {key:'ucSales', label:'UC Sales', fields:['order','sku','date','value','channel']},
+    {key:'ucReturn', label:'UC Return', fields:['order','sku','date','qty','value','channel']},
+    {key:'sap', label:'SAP', fields:['order','sku','date','qty','value','channel','docType']},
+    {key:'itPending', label:'IT Pending', fields:['order','sku','reason']}
+  ];
+  return groups.map(g=>`<div class="card"><div class="card-header"><h3>${g.label}</h3><div class="desc">Leave blank to auto-detect from headers</div></div>
+    <div class="grid grid-3">${g.fields.map(f=>`<div class="field-block"><label>${f}</label>
+      <input data-grp="${g.key}" data-field="${f}" value="${U.escapeHtml(App.settings.columnMap[g.key][f]||'')}" placeholder="auto-detect"></div>`).join('')}</div></div>`).join('');
+}
+function bindColumnMapPane(root){
+  const pane = root.querySelector('#pane-columns'); if(!pane) return;
+  pane.querySelectorAll('input').forEach(inp=> inp.addEventListener('change', ()=>{
+    App.settings.columnMap[inp.dataset.grp][inp.dataset.field] = inp.value.trim();
+    App.saveSettings();
+  }));
+}
+
+/* ---------- Appearance ---------- */
+function appearancePane(){
+  const swatches = App.THEMES.map(t=>`<div class="theme-swatch ${App.settings.theme===t.id?'active':''}" data-theme="${t.id}">
+    <div class="theme-preview" style="background:linear-gradient(135deg,${t.colors[0]},${t.colors[1]},${t.colors[2]});"></div>${t.name}</div>`).join('');
+  return `<div class="card"><div class="card-header"><h3>Theme</h3><div class="desc">${App.THEMES.length} themes available</div></div><div class="theme-grid">${swatches}</div></div>
+  <div class="card" style="margin-top:16px;"><div class="card-header"><h3>Sound</h3><div class="desc">Play subtle notification sounds for upload, processing, completion and errors</div></div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <label class="toggle"><input type="checkbox" id="soundToggleSettings" ${App.settings.sound?'checked':''}><span class="slider"></span></label>
+      <span style="font-size:12px;color:var(--text-dim);">${App.settings.sound?'Sound is ON':'Sound is OFF'}</span>
+      <button class="btn btn-sm" id="testSoundBtn" style="margin-left:auto;">&#128266; Test Sound</button>
+    </div></div>`;
+}
+function bindAppearancePane(root){
+  const pane = root.querySelector('#pane-appearance'); if(!pane) return;
+  pane.querySelectorAll('.theme-swatch').forEach(sw=> sw.addEventListener('click', ()=>{
+    App.ThemeManager.apply(sw.dataset.theme);
+    Views.render_settings(document.getElementById('view-settings'));
+  }));
+  const st = pane.querySelector('#soundToggleSettings');
+  if(st) st.addEventListener('change', ()=>{
+    App.settings.sound = st.checked; App.saveSettings();
+    Views.render_settings(document.getElementById('view-settings'));
+  });
+  const testBtn = pane.querySelector('#testSoundBtn');
+  if(testBtn) testBtn.addEventListener('click', ()=>{
+    const wasOn = App.settings.sound;
+    App.settings.sound = true; // force audible for the test, regardless of current toggle
+    App.Sound.play('success');
+    App.settings.sound = wasOn;
+    Notify.show('Sound test played','info');
+  });
+}
+
+/* ---------- Import / Export / Reset ---------- */
+function dataPane(){
+  return `<div class="card"><div class="card-header"><h3>Settings Backup</h3><div class="desc">Channel mapping, doc type mapping, tolerance, column mapping, theme &amp; sound. Business data is never included.</div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" id="exportSettingsBtn">&#8595; Export Settings</button>
+      <button class="btn btn-sm" id="importSettingsBtn">&#8593; Import Settings</button>
+      <input type="file" id="importSettingsFile" accept=".json" style="display:none;">
+      <button class="btn btn-danger btn-sm" id="resetSettingsBtn">Reset to Defaults</button>
+    </div></div>`;
+}
+function bindDataPane(root){
+  const pane = root.querySelector('#pane-data'); if(!pane) return;
+  const exp = pane.querySelector('#exportSettingsBtn');
+  if(exp) exp.addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(App.settings,null,2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='ucsap_settings.json'; a.click();
+    Notify.show('Settings exported','success');
+  });
+  const imp = pane.querySelector('#importSettingsBtn'), fileInp = pane.querySelector('#importSettingsFile');
+  if(imp) imp.addEventListener('click', ()=> fileInp.click());
+  if(fileInp) fileInp.addEventListener('change', (e)=>{
+    const f = e.target.files[0]; if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const parsed = JSON.parse(reader.result);
+        App.settings = Object.assign(App.defaultSettings(), parsed);
+        App.saveSettings(); App.ThemeManager.apply(App.settings.theme);
+        Views.render_settings(document.getElementById('view-settings'));
+        Notify.show('Settings imported','success');
+      }catch(err){ Notify.show('Invalid settings file','error'); }
+    };
+    reader.readAsText(f);
+  });
+  const reset = pane.querySelector('#resetSettingsBtn');
+  if(reset) reset.addEventListener('click', ()=>{
+    if(!confirm('Reset all settings to defaults? This cannot be undone.')) return;
+    App.settings = App.defaultSettings(); App.saveSettings(); App.ThemeManager.apply(App.settings.theme);
+    Views.render_settings(document.getElementById('view-settings'));
+    Notify.show('Settings reset to defaults','info');
+  });
+}
+})();
+
+
+(function(){
+'use strict';
+const U = App.U;
+const Views = App.Views;
+
+Views.render_help = function(el){
+  const meta = App.runMeta;
+  el.innerHTML = `
+  <div class="card">
+    <h3>About UC × SAP Reconciliation Hub</h3>
+    <p class="helptext">A fully client-side reconciliation tool comparing Unicommerce (UC) Sales &amp; Returns against SAP Sales &amp; Returns,
+    at Order + SKU level, with day-wise, monthly, channel-wise, order-level and SKU-level views. No uploaded file ever leaves your browser.</p>
+
+    <h4>UC is always the base</h4>
+    <p class="helptext">Every Order ID + Material Code combination in the report comes from the UC Sales and/or UC Return files.
+    SAP is matched against those combinations — a combination that exists only in SAP, with no corresponding UC record, is
+    <b>never added</b> to the reconciliation.</p>
+
+    <h4>File-wise Field Mapping</h4>
+    <p class="helptext">
+      <b>UC Sales</b> — Order ID = Display Order Code · Material Code = Item SKU Code · Date = Dispatch Date · Value = Total Price<br>
+      <b>UC Return</b> — Order ID = Sale Order Number · Material Code = Product SKU Code · Date = 1st column (Order Date) · Value = Total<br>
+      <b>SAP</b> — Order ID = PO Number (everything after <code>/*</code> is stripped before matching) · Material Code = Material Code ·
+      Value = Net Value in INR + Net Tax Amount
+    </p>
+
+    <h4>How is UC Sales Quantity calculated?</h4>
+    <p class="helptext">Every row in the UC Sales report represents <b>one unit</b>. UC Sales Quantity is calculated by
+    <b>counting valid rows</b> grouped by Order ID + Material Code — never by reading a quantity column.<br>
+    Example: 5 UC Sales rows for the same Order ID + Material Code = <code>UC Sales Qty = 5</code>.</p>
+
+    <h4>How is UC Return Quantity calculated?</h4>
+    <p class="helptext">UC Return Quantity is calculated by <b>summing the Qty column</b> from the UC Return report. This is different from UC Sales.</p>
+
+    <h4>Primary Match Key</h4>
+    <p class="helptext"><code>Order ID-Material Code</code>, e.g. <code>123456789-ABC123</code> — both sides are trimmed and upper-cased
+    before matching, and the SAP PO Number has everything after <code>/*</code> removed first.</p>
+
+    <h4>Core Formulas</h4>
+    <p class="helptext">
+      UC Sales Quantity = COUNT(valid UC Sales rows)<br>
+      UC Sales Value = SUM(Total Price)<br>
+      UC Return Quantity = SUM(Qty)<br>
+      UC Return Value = SUM(Total)<br>
+      SAP Sales / Returns = split using the configurable Sales Doc Type mapping in Settings<br>
+      SAP Value = SUM(Net Value in INR) + SUM(Net Tax Amount)<br>
+      Value Tolerance = ₹${App.settings.tolerance} by default (Settings → Value Tolerance)
+    </p>
+
+    <h4>Final Remark Logic</h4>
+    <p class="helptext">
+      For each Order ID + Material Code combination, the Sales side (if UC has sales) and the Return side (if UC has returns)
+      are evaluated independently, then combined into one remark:<br>
+      <b>Matched</b> — qty and value line up exactly &nbsp;·&nbsp; <b>Round Off</b> — qty matches, |value difference| ≤ tolerance<br>
+      <b>Partial Sales</b> / <b>Partial Return</b> — SAP shows a smaller quantity than UC (partially posted)<br>
+      <b>Quantity Mismatch</b> — SAP quantity is higher than UC, or differs in an unexpected direction<br>
+      <b>Value Mismatch</b> — quantity matches but |value difference| &gt; tolerance<br>
+      <b>Sales Not Posted in SAP</b> / <b>Return Not Posted in SAP</b> — UC has the transaction, SAP shows zero for that side<br>
+      <b>Order/SKU Not Found in SAP</b> — the Order ID + Material Code doesn't exist in SAP at all<br>
+      When both sides have distinct issues they're combined, e.g. <i>"Partial Sales &amp; Return Not Posted in SAP"</i>.
+      Where the optional IT Pending file explains an unposted record, <b>(SAP Pending / IT)</b> is appended with the reason.
+    </p>
+
+    <h4>Privacy</h4>
+    <p class="helptext">All uploaded files are parsed and processed entirely in your browser using JavaScript. Nothing is uploaded to any server.
+    Only your Settings (channel mapping, tolerance, theme, etc.) are saved to this browser's LocalStorage — never your business data.</p>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-header"><h3>Audit Summary</h3>${meta?'<button class="btn btn-sm" id="exportRunSummaryBtn">Export Run Summary</button>':''}</div>
+    ${meta ? auditSummaryHtml(meta) : `<p class="helptext">Run a reconciliation to see the audit summary for this session.</p>`}
+  </div>`;
+  const btn = document.getElementById('exportRunSummaryBtn');
+  if(btn) btn.addEventListener('click', ()=>{
+    const lines = Object.entries(runSummaryFields(meta)).map(([k,v])=>`${k}: ${v}`).join('\n');
+    const blob = new Blob([lines], {type:'text/plain'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='run_summary.txt'; a.click();
+  });
+};
+function runSummaryFields(meta){
+  return {
+    'Reconciliation Run Date': meta.runDate, 'Reconciliation Run Time': meta.runTime,
+    'UC Sales Files': meta.ucSalesFiles, 'UC Return Files': meta.ucReturnFiles, 'SAP Files': meta.sapFiles,
+    'IT File Uploaded': meta.itFileUploaded?'Yes':'No',
+    'UC Sales Records': meta.ucSalesRecords, 'UC Return Records': meta.ucReturnRecords,
+    'SAP Records': meta.sapRecords, 'IT Pending Records': meta.itPendingRecords,
+    'Tolerance Used': '₹'+meta.tolerance,
+    'Channel Mapping Used': App.settings.channelMap.filter(c=>c.active!==false).map(c=>`${c.ucChannel}->${c.sapChannel}`).join(', ')
+  };
+}
+function auditSummaryHtml(meta){
+  const f = runSummaryFields(meta);
+  return `<div class="table-wrap"><table><tbody>${Object.entries(f).map(([k,v])=>`<tr><td style="color:var(--text-faint);width:220px;">${k}</td><td>${U.escapeHtml(String(v))}</td></tr>`).join('')}</tbody></table></div>`;
+}
+})();
+
+
+/* ============================================================
+   EXPORT ENGINE
+   ============================================================ */
+(function(){
+'use strict';
+const U = App.U;
+
+function toSheetRows(arr){
+  // arr of plain objects -> array of arrays with header row, human labels
+  if(!arr || !arr.length) return [['(no data)']];
+  const keys = Object.keys(arr[0]).filter(k=>!k.startsWith('__'));
+  const header = keys.map(k=> k.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase()).trim());
+  const rows = arr.map(o=> keys.map(k=>{
+    let v = o[k];
+    if(v instanceof Set) v = [...v].join(', ');
+    return v;
+  }));
+  return [header, ...rows];
+}
+function downloadCsv(arr, filename){
+  if(!arr || !arr.length){ Notify.show('Nothing to export for this view','warn'); return; }
+  const aoa = toSheetRows(arr);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const csv = XLSX.utils.sheet_to_csv(ws);
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename+'.csv'; a.click();
+  Notify.show('CSV downloaded: '+filename+'.csv','success');
+}
+
+function buildWorkbook(){
+  const c = App.computed;
+  const records = App.Engine.applyFilters(c.detailed);
+  const wb = XLSX.utils.book_new();
+  const addSheet = (name, aoa)=>{
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = (aoa[0]||[]).map(()=>({wch:18}));
+    ws['!freeze'] = {xSplit:0, ySplit:1};
+    XLSX.utils.book_append_sheet(wb, ws, name.slice(0,31));
+  };
+
+  // 1. Summary
+  const sum=(a,f)=>a.reduce((s,r)=>s+f(r),0);
+  const pivot = App.Engine.aggPivot(records);
+  const summaryAoa = [
+    ['UC × SAP Reconciliation Hub — Summary'],
+    ['Generated', new Date().toLocaleString()],
+    ['UC is treated as the base file — SAP-only Order ID + Material Code combinations are never added.'],
+    [],
+    ['Metric','Value'],
+    ['UC Sales Qty', sum(records,r=>r.ucSalesQty)], ['SAP Sales Qty', sum(records,r=>r.sapSalesQty)],
+    ['UC Sales Value', sum(records,r=>r.ucSalesValue)], ['SAP Sales Value', sum(records,r=>r.sapSalesValue)],
+    ['UC Return Qty', sum(records,r=>r.ucReturnQty)], ['SAP Return Qty', sum(records,r=>r.sapReturnQty)],
+    ['UC Return Value', sum(records,r=>r.ucReturnValue)], ['SAP Return Value', sum(records,r=>r.sapReturnValue)],
+    ['Match Rate %', App.Engine.matchRate(records).toFixed(2)],
+    [],
+    ['Final Remark','Count'],
+    ...pivot.map(p=>[p.remark, p.count])
+  ];
+  addSheet('Summary', summaryAoa);
+
+  addSheet('Day Wise Recon', toSheetRows(App.Engine.aggDayWise(records)));
+  addSheet('Monthly Recon', toSheetRows(App.Engine.aggMonthWise(records).map(({sortKey,...r})=>r)));
+  addSheet('Channel Wise Recon', toSheetRows(App.Engine.aggChannelWise(records)));
+  addSheet('Order Level Recon', toSheetRows(App.Engine.aggOrderLevel(records)));
+  addSheet('SKU Analysis', toSheetRows(App.Engine.aggSkuLevel(records)));
+  addSheet('Final Remark Pivot', toSheetRows(pivot));
+  addSheet('Detailed Recon', toSheetRows(records));
+  addSheet('Not Found in SAP', toSheetRows(records.filter(r=>r.remark.includes('Not Found in SAP'))));
+  addSheet('Not Posted in SAP', toSheetRows(records.filter(r=>r.remark.includes('Not Posted in SAP'))));
+  addSheet('Partial Sales-Returns', toSheetRows(records.filter(r=>r.remark.includes('Partial'))));
+  addSheet('Mismatch', toSheetRows(records.filter(r=>r.remark.includes('Mismatch'))));
+  addSheet('SAP Pending IT', toSheetRows(records.filter(r=>r.itPending)));
+  addSheet('File Validation', toSheetRows(App.validation.map(v=>({File:v.file,Type:v.type,Rows:v.rows,Status:v.status,Missing:v.missing.join(', ')}))));
+
+  const dq = App.Views && App.__dataQuality ? App.__dataQuality() : null;
+  addSheet('Data Quality', toSheetRows(Object.entries(computeDQForExport()).map(([Issue,Count])=>({Issue,Count}))));
+
+  const settingsAoa = [
+    ['Setting','Value'],
+    ['Tolerance', App.settings.tolerance],
+    ['Sales Doc Types', App.settings.docTypeMap.sales.join(', ')],
+    ['Return Doc Types', App.settings.docTypeMap.returns.join(', ')],
+    [],
+    ['UC Channel','SAP Channel','Marketplace','Active'],
+    ...App.settings.channelMap.map(c=>[c.ucChannel,c.sapChannel,c.marketplace,c.active!==false])
+  ];
+  addSheet('Settings', settingsAoa);
+
+  return wb;
+}
+function computeDQForExport(){
+  const issues = { 'Blank Order Number':0,'Blank SKU':0,'Blank Date':0,'Blank Total Price / Value':0,'Blank Return Qty':0,'Invalid / Unparsed Dates':0 };
+  App.raw.ucSales.forEach(r=>{
+    if(!String(r.order||'').trim()) issues['Blank Order Number']++;
+    if(!String(r.sku||'').trim()) issues['Blank SKU']++;
+    if(!r.date) issues['Blank Date']++; else if(!App.U.parseDate(r.date)) issues['Invalid / Unparsed Dates']++;
+    if(r.value===''||r.value===undefined) issues['Blank Total Price / Value']++;
+  });
+  App.raw.ucReturn.forEach(r=>{
+    if(!String(r.order||'').trim()) issues['Blank Order Number']++;
+    if(!String(r.sku||'').trim()) issues['Blank SKU']++;
+    if(r.qty===''||r.qty===undefined) issues['Blank Return Qty']++;
+  });
+  return issues;
+}
+
+function downloadWorkbook(){
+  if(!App.computed){ Notify.show('Run a reconciliation first','warn'); return; }
+  try{
+    const wb = buildWorkbook();
+    const stamp = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `UC_SAP_Reconciliation_${stamp}.xlsx`);
+    Notify.show('Excel workbook downloaded','success');
+  }catch(err){
+    console.error(err);
+    Notify.show('Export failed — see console for details','error');
+  }
+}
+
+App.ExportEngine = { downloadCsv, downloadWorkbook, buildWorkbook };
+})();
+
+
+
+</script>
+</body>
+</html>
